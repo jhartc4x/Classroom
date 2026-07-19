@@ -319,12 +319,12 @@ export const useStore = create(
         }),
 
       // ---------- assessment days ----------
-      // {id, name, date: 'YYYY-MM-DD', classIds: [], note, provided: { [studentId]: true }}
+      // {id, name, date: 'YYYY-MM-DD', classIds: [], note, provided: {}, refused: { [studentId]: true }}
       assessments: [],
       addAssessment: (name, date, classIds, note = '') =>
         set((s) => ({
           assessments: [
-            { id: uid(), name, date, classIds, note, provided: {} },
+            { id: uid(), name, date, classIds, note, provided: {}, refused: {} },
             ...s.assessments,
           ],
         })),
@@ -335,7 +335,23 @@ export const useStore = create(
         set((s) => ({
           assessments: s.assessments.map((a) =>
             a.id === assessmentId
-              ? { ...a, provided: { ...a.provided, [studentId]: !a.provided[studentId] } }
+              ? {
+                  ...a,
+                  provided: { ...a.provided, [studentId]: !a.provided[studentId] },
+                  refused: { ...(a.refused ?? {}), [studentId]: false },
+                }
+              : a,
+          ),
+        })),
+      toggleRefused: (assessmentId, studentId) =>
+        set((s) => ({
+          assessments: s.assessments.map((a) =>
+            a.id === assessmentId
+              ? {
+                  ...a,
+                  refused: { ...(a.refused ?? {}), [studentId]: !(a.refused ?? {})[studentId] },
+                  provided: { ...a.provided, [studentId]: false },
+                }
               : a,
           ),
         })),

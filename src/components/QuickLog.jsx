@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore, useCurrentClass, useChipMaps } from '../store'
 import { PALETTES } from '../data'
-import { timeAgo, burstConfetti, describeLog } from '../utils'
+import { timeAgo, burstConfetti, describeLog, uid } from '../utils'
 import { Card, SectionTitle, EmptyState, BigButton } from './ui'
 import { useToast } from '../App'
 import { cellMapOf, unseatedStudents, SeatGrid } from './seating'
@@ -151,13 +151,22 @@ function ActionPanel({ studentId, onDone }) {
   const toast = useToast()
   const student = cls.students.find((s) => s.id === studentId)
   const [note, setNote] = useState('')
+  const [behavior, setBehavior] = useState(null)
+  const [intervention, setIntervention] = useState(null)
   if (!student) return null
 
-  const log = (kind, item) => {
-    addLog({ classId: cls.id, studentId, kind, code: item.code, note: note.trim() })
-    if (kind === 'behavior' && item.polarity === 'pos') burstConfetti()
-    toast(`${item.emoji} ${item.label} → ${student.name}`)
+  const save = () => {
+    if (!behavior && !intervention) return
+    const batchId = uid()
+    const shared = { classId: cls.id, studentId, note: note.trim(), batchId }
+    if (behavior) addLog({ ...shared, kind: 'behavior', code: behavior.code })
+    if (intervention) addLog({ ...shared, kind: 'intervention', code: intervention.code })
+    if (behavior?.polarity === 'pos') burstConfetti()
+    const labels = [behavior && `${behavior.emoji} ${behavior.label}`, intervention && `${intervention.emoji} ${intervention.label}`].filter(Boolean)
+    toast(`${labels.join(' + ')} → ${student.name}`)
     setNote('')
+    setBehavior(null)
+    setIntervention(null)
     onDone()
   }
 
@@ -174,14 +183,17 @@ function ActionPanel({ studentId, onDone }) {
           📇 History &amp; contacts
         </button>
       </div>
-      <div className="mb-1 text-sm font-bold text-ink/50">Behavior</div>
+      <div className="mb-1 text-sm font-bold text-ink/50">Behavior <span className="font-normal">(optional)</span></div>
       <div className="mb-3 flex flex-wrap gap-2">
         {behaviors.map((b) => (
           <button
             key={b.code}
-            onClick={() => log('behavior', b)}
-            className={`rounded-2xl px-3 py-2 font-bold transition-all hover:scale-105 active:scale-90 cursor-pointer ${
-              b.polarity === 'pos'
+            onClick={() => setBehavior(behavior?.code === b.code ? null : b)}
+            className={`rounded-2xl px-3 py-2 font-bold transition-all hover:scale-105 active:scale-90 cursor-pointer ring-2 ${
+              behavior?.code === b.code
+                ? 'ring-ink scale-105'
+                : 'ring-transparent'
+            } ${b.polarity === 'pos'
                 ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900'
                 : 'bg-rose-50 hover:bg-rose-100 text-rose-900'
             }`}
@@ -190,24 +202,32 @@ function ActionPanel({ studentId, onDone }) {
           </button>
         ))}
       </div>
-      <div className="mb-1 text-sm font-bold text-ink/50">Intervention tried</div>
+      <div className="mb-1 text-sm font-bold text-ink/50">Intervention tried <span className="font-normal">(optional)</span></div>
       <div className="mb-3 flex flex-wrap gap-2">
         {interventions.map((i) => (
           <button
             key={i.code}
-            onClick={() => log('intervention', i)}
-            className="rounded-2xl bg-sky-50 px-3 py-2 font-bold text-sky-900 transition-all hover:scale-105 hover:bg-sky-100 active:scale-90 cursor-pointer"
+            onClick={() => setIntervention(intervention?.code === i.code ? null : i)}
+            className={`rounded-2xl bg-sky-50 px-3 py-2 font-bold text-sky-900 transition-all hover:scale-105 hover:bg-sky-100 active:scale-90 cursor-pointer ring-2 ${
+              intervention?.code === i.code ? 'ring-ink scale-105' : 'ring-transparent'
+            }`}
           >
             {i.emoji} {i.label}
           </button>
         ))}
       </div>
-      <input
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        placeholder="Optional note (attached to next tap)…"
-        className="w-full rounded-2xl bg-white px-4 py-2 text-sm ring-1 ring-ink/10 outline-none focus:ring-2 focus:ring-sky-400"
-      />
+      <div className="flex gap-2">
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && save()}
+          placeholder="Optional note…"
+          className="min-w-0 flex-1 rounded-2xl bg-white px-4 py-2 text-sm ring-1 ring-ink/10 outline-none focus:ring-2 focus:ring-sky-400"
+        />
+        <BigButton className="shrink-0 bg-ink text-white" onClick={save} disabled={!behavior && !intervention}>
+          Log selected
+        </BigButton>
+      </div>
     </Card>
   )
 }
@@ -219,25 +239,41 @@ function TodayFeed() {
   const { bMap, iMap, cMap } = useChipMaps()
   const toast = useToast()
   const today = new Date().setHours(0, 0, 0, 0)
-  const todayLogs = logs.filter((l) => l.classId === cls.id && l.ts >= today).slice(0, 20)
+  const todayLogs = logs.filter((l) => l.classId === cls.id && l.ts >= today)
+  const groups = []
+  const groupsByBatch = new Map()
+  for (const log of todayLogs) {
+    const key = log.batchId ?? log.id
+    const group = groupsByBatch.get(key)
+    if (group) group.logs.push(log)
+    else {
+      const next = { key, logs: [log], ts: log.ts }
+      groupsByBatch.set(key, next)
+      groups.push(next)
+    }
+  }
+  groups.sort((a, b) => b.ts - a.ts)
 
-  if (todayLogs.length === 0) return null
+  if (groups.length === 0) return null
   return (
     <div className="mt-8">
       <SectionTitle emoji="🧾">Today in {cls.name}</SectionTitle>
       <div className="flex flex-col gap-2">
-        {todayLogs.map((l) => {
-          const st = cls.students.find((s) => s.id === l.studentId)
+        {groups.slice(0, 20).map((group) => {
+          const [firstLog] = group.logs
+          const st = cls.students.find((s) => s.id === firstLog.studentId)
+          const orderedLogs = [...group.logs].sort((a, b) => Number(a.kind !== 'behavior') - Number(b.kind !== 'behavior'))
+          const descriptions = orderedLogs.map((log) => describeLog(log, bMap, iMap, cMap)).join(' + ')
           return (
-            <div key={l.id} className="flex items-center gap-3 rounded-2xl bg-white/70 px-4 py-2 ring-1 ring-ink/5">
+            <div key={group.key} className="flex items-center gap-3 rounded-2xl bg-white/70 px-4 py-2 ring-1 ring-ink/5">
               <span className="font-bold">{st?.name ?? '?'}</span>
-              <span className="text-sm">{describeLog(l, bMap, iMap, cMap)}</span>
-              {l.note && <span className="text-sm italic text-ink/50">“{l.note}”</span>}
-              <span className="ml-auto text-xs font-bold text-ink/40">{timeAgo(l.ts)}</span>
+              <span className="text-sm">{descriptions}</span>
+              {firstLog.note && <span className="text-sm italic text-ink/50">“{firstLog.note}”</span>}
+              <span className="ml-auto text-xs font-bold text-ink/40">{timeAgo(group.ts)}</span>
               <button
-                onClick={() => { deleteLog(l.id); toast('Undone ↩️') }}
+                onClick={() => { group.logs.forEach((log) => deleteLog(log.id)); toast('Undone ↩️') }}
                 className="text-xs font-bold text-ink/40 hover:text-rose-500 cursor-pointer"
-                title="Undo this entry"
+                title="Undo this log entry"
               >
                 undo
               </button>

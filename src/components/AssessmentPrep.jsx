@@ -13,6 +13,7 @@ export default function AssessmentPrep() {
   const plans = useStore((s) => s.plans)
   const accommodationOptions = useStore((s) => s.accommodationOptions)
   const toggleProvided = useStore((s) => s.toggleProvided)
+  const toggleRefused = useStore((s) => s.toggleRefused)
   const openStudent = useStore((s) => s.openStudent)
   const toast = useToast()
 
@@ -51,14 +52,15 @@ export default function AssessmentPrep() {
           ) : (
             <div>
               <div className="mb-2 text-sm font-bold text-ink/50">
-                {rows.length} student{rows.length === 1 ? '' : 's'} need accommodations — check off as provided
+                {rows.length} student{rows.length === 1 ? '' : 's'} need accommodations — record whether each was provided or refused
               </div>
               <div className="flex flex-col gap-2">
                 {rows.map(({ student, cls, plan }) => {
                   const pal = PALETTES[cls.color] ?? PALETTES.sky
                   const provided = !!assessment.provided[student.id]
+                  const refused = !!assessment.refused?.[student.id]
                   return (
-                    <div key={student.id} className={`rounded-2xl p-3 ${provided ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'bg-white ring-1 ring-ink/5'}`}>
+                    <div key={student.id} className={`rounded-2xl p-3 ${provided ? 'bg-emerald-50 ring-1 ring-emerald-200' : refused ? 'bg-amber-50 ring-1 ring-amber-200' : 'bg-white ring-1 ring-ink/5'}`}>
                       <div className="mb-1.5 flex flex-wrap items-center gap-2">
                         <button onClick={() => openStudent(student.id)} className={`rounded-lg px-2 py-0.5 font-bold hover:underline cursor-pointer ${pal.chip}`}>
                           {student.name}
@@ -75,6 +77,18 @@ export default function AssessmentPrep() {
                             className="h-4 w-4 accent-emerald-500"
                           />
                           Provided
+                        </label>
+                        <label className="flex items-center gap-1.5 text-sm font-bold text-amber-900 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={refused}
+                            onChange={() => {
+                              toggleRefused(assessment.id, student.id)
+                              if (!refused) toast(`${student.name} refused the accommodation`)
+                            }}
+                            className="h-4 w-4 accent-amber-500"
+                          />
+                          Student refused
                         </label>
                       </div>
                       <div className="flex flex-wrap gap-1.5">

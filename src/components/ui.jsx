@@ -60,7 +60,7 @@ export function EmptyState({ emoji, title, hint, action }) {
   )
 }
 
-export function Modal({ open, onClose, title, emoji, children, wide = false }) {
+export function Modal({ open, onClose, title, emoji, children, wide = false, roomy = false }) {
   useEffect(() => {
     if (!open) return
     const onKey = (e) => e.key === 'Escape' && onClose()
@@ -72,7 +72,7 @@ export function Modal({ open, onClose, title, emoji, children, wide = false }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={onClose}>
       <div
-        className={`sticker animate-pop max-h-[85vh] w-full ${wide ? 'max-w-2xl' : 'max-w-md'} overflow-y-auto rounded-3xl bg-cream p-6`}
+        className={`sticker animate-pop max-h-[90vh] w-full ${roomy ? 'max-w-3xl' : wide ? 'max-w-2xl' : 'max-w-md'} overflow-y-auto rounded-3xl bg-cream p-4 sm:p-6`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">

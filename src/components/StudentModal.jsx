@@ -264,6 +264,7 @@ export default function StudentModal() {
 
   const [method, setMethod] = useState('phone')
   const [note, setNote] = useState('')
+  const [section, setSection] = useState('overview')
 
   const { student, cls } = findStudent(classes, viewingStudent)
   const open = !!student
@@ -290,7 +291,7 @@ export default function StudentModal() {
   }
 
   return (
-    <Modal open={open} onClose={closeStudent} title={student?.name ?? ''} emoji="📇" wide>
+    <Modal open={open} onClose={closeStudent} title={student?.name ?? ''} emoji="📇" roomy>
       {student && (
         <div className="flex flex-col gap-4">
           <div className="rounded-3xl bg-ink p-4 text-white">
@@ -323,7 +324,13 @@ export default function StudentModal() {
             </button>
           </div>
 
-          <DetailSection emoji="🧭" title="Follow-up & recognition" hint="Keep an eye on a concern or capture a strength. These work independently.">
+          <div className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto rounded-2xl bg-cream p-1 ring-1 ring-ink/10">
+            <ModalTab active={section === 'overview'} onClick={() => setSection('overview')}>🧭 Overview</ModalTab>
+            <ModalTab active={section === 'support'} onClick={() => setSection('support')}>🎯 IEP / 504</ModalTab>
+            <ModalTab active={section === 'history'} onClick={() => setSection('history')}>📞 Family & history</ModalTab>
+          </div>
+
+          {section === 'overview' && <DetailSection emoji="🧭" title="Follow-up & recognition" hint="Keep an eye on a concern or capture a strength. These work independently.">
           <div className="grid gap-4 sm:grid-cols-2">
             {activeWatch ? (
               <div className="rounded-2xl bg-amber-50 px-4 py-2 text-sm font-bold text-amber-900 ring-1 ring-amber-200">
@@ -359,13 +366,13 @@ export default function StudentModal() {
               </div>
             )}
           </div>
-          </DetailSection>
+          </DetailSection>}
 
-          <DetailSection emoji="🎯" title="Support plan" hint="Private plan details, accommodations, and goals.">
+          {section === 'support' && <DetailSection emoji="🎯" title="IEP / 504 support plan" hint="Private plan details, accommodations, and goals.">
             <PlanSection student={student} />
-          </DetailSection>
+          </DetailSection>}
 
-          <DetailSection emoji="📞" title="Family communication" hint="Choose a contact method and add a note for the history.">
+          {section === 'history' && <><DetailSection emoji="📞" title="Family communication" hint="Choose a contact method and add a note for the history.">
             <div className="mb-2 flex flex-wrap gap-2">
               {contactMethods.map((m) => (
                 <Chip key={m.code} active={method === m.code} onClick={() => setMethod(m.code)}>
@@ -415,8 +422,22 @@ export default function StudentModal() {
               </div>
             )}
           </DetailSection>
+          </>}
         </div>
       )}
     </Modal>
+  )
+}
+
+function ModalTab({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`min-h-11 shrink-0 rounded-xl px-3 py-2 text-sm font-bold transition-colors cursor-pointer ${
+        active ? 'bg-ink text-white shadow-sm' : 'text-ink/60 hover:bg-white'
+      }`}
+    >
+      {children}
+    </button>
   )
 }
