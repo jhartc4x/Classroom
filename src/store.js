@@ -8,6 +8,7 @@ import {
   PALETTE_KEYS,
   DEFAULT_BEHAVIORS,
   DEFAULT_INTERVENTIONS,
+  DEFAULT_ACCOMMODATIONS,
   CONTACT_METHODS,
 } from './data'
 
@@ -19,6 +20,8 @@ const move = (arr, id, dir) => {
   ;[next[i], next[j]] = [next[j], next[i]]
   return next
 }
+
+const blankPlan = () => ({ type: null, reviewDate: '', accommodationCodes: [], customAccommodations: [], goals: [] })
 
 export const useStore = create(
   persist(
@@ -39,12 +42,21 @@ export const useStore = create(
         set((s) => ({ classes: s.classes.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
       deleteClass: (id) =>
         set((s) => {
+          const removed = s.classes.find((c) => c.id === id)
+          const removedStudentIds = new Set((removed?.students ?? []).map((st) => st.id))
           const classes = s.classes.filter((c) => c.id !== id)
+          const plans = { ...s.plans }
+          for (const sid of removedStudentIds) delete plans[sid]
+          const assessments = s.assessments
+            .map((a) => ({ ...a, classIds: a.classIds.filter((cid) => cid !== id) }))
+            .filter((a) => a.classIds.length > 0)
           return {
             classes,
             currentClassId: s.currentClassId === id ? classes[0]?.id ?? null : s.currentClassId,
             logs: s.logs.filter((l) => l.classId !== id),
             flags: s.flags.filter((f) => f.classId !== id),
+            plans,
+            assessments,
           }
         }),
       setCurrentClass: (id) => set({ currentClassId: id }),
@@ -83,10 +95,29 @@ export const useStore = create(
       moveIntervention: (code, dir) => set((s) => ({ interventions: move(s.interventions, code, dir) })),
       resetInterventions: () => set({ interventions: DEFAULT_INTERVENTIONS }),
 
+      // ---------- editable chips (IEP/504 accommodation options) ----------
+      accommodationOptions: DEFAULT_ACCOMMODATIONS, // {code, label, emoji}
+      addAccommodationOption: (label, emoji) =>
+        set((s) => ({ accommodationOptions: [...s.accommodationOptions, { code: uid(), label, emoji }] })),
+      updateAccommodationOption: (code, patch) =>
+        set((s) => ({
+          accommodationOptions: s.accommodationOptions.map((a) => (a.code === code ? { ...a, ...patch } : a)),
+        })),
+      deleteAccommodationOption: (code) =>
+        set((s) => ({ accommodationOptions: s.accommodationOptions.filter((a) => a.code !== code) })),
+      moveAccommodationOption: (code, dir) =>
+        set((s) => ({ accommodationOptions: move(s.accommodationOptions, code, dir) })),
+      resetAccommodationOptions: () => set({ accommodationOptions: DEFAULT_ACCOMMODATIONS }),
+
       // ---------- student detail modal ----------
       viewingStudent: null, // studentId currently shown in the detail modal (ephemeral, not persisted)
       openStudent: (studentId) => set({ viewingStudent: studentId }),
       closeStudent: () => set({ viewingStudent: null }),
+
+      // ---------- assessment prep modal ----------
+      viewingAssessment: null, // assessmentId currently shown (ephemeral, not persisted)
+      openAssessment: (assessmentId) => set({ viewingAssessment: assessmentId }),
+      closeAssessment: () => set({ viewingAssessment: null }),
 
       // ---------- toolbox: random picker ----------
       pickedByClass: {}, // { classId: [studentId, ...] } already called this round (ephemeral)
@@ -184,6 +215,131 @@ export const useStore = create(
           ),
         })),
 
+      // ---------- IEP / 504 plans (keyed by studentId) ----------
+      // plans[studentId] = { type: 'iep'|'504'|null, reviewDate, accommodationCodes: [],
+      //                       customAccommodations: [{id, text}], goals: [{id, text, status, notes: [{id, ts, text}]}] }
+      plans: {},
+      setPlanType: (studentId, type) =>
+        set((s) => ({
+          plans: { ...s.plans, [studentId]: { ...(s.plans[studentId] ?? blankPlan()), type } },
+        })),
+      setPlanReviewDate: (studentId, reviewDate) =>
+        set((s) => ({
+          plans: { ...s.plans, [studentId]: { ...(s.plans[studentId] ?? blankPlan()), reviewDate } },
+        })),
+      toggleAccommodationCode: (studentId, code) =>
+        set((s) => {
+          const plan = s.plans[studentId] ?? blankPlan()
+          const has = plan.accommodationCodes.includes(code)
+          const accommodationCodes = has
+            ? plan.accommodationCodes.filter((c) => c !== code)
+            : [...plan.accommodationCodes, code]
+          return { plans: { ...s.plans, [studentId]: { ...plan, accommodationCodes } } }
+        }),
+      addCustomAccommodation: (studentId, text) =>
+        set((s) => {
+          const plan = s.plans[studentId] ?? blankPlan()
+          return {
+            plans: {
+              ...s.plans,
+              [studentId]: { ...plan, customAccommodations: [...plan.customAccommodations, { id: uid(), text }] },
+            },
+          }
+        }),
+      removeCustomAccommodation: (studentId, id) =>
+        set((s) => {
+          const plan = s.plans[studentId]
+          if (!plan) return {}
+          return {
+            plans: {
+              ...s.plans,
+              [studentId]: { ...plan, customAccommodations: plan.customAccommodations.filter((a) => a.id !== id) },
+            },
+          }
+        }),
+      addGoal: (studentId, text) =>
+        set((s) => {
+          const plan = s.plans[studentId] ?? blankPlan()
+          const goal = { id: uid(), text, status: 'not-started', notes: [] }
+          return { plans: { ...s.plans, [studentId]: { ...plan, goals: [...plan.goals, goal] } } }
+        }),
+      updateGoalStatus: (studentId, goalId, status) =>
+        set((s) => {
+          const plan = s.plans[studentId]
+          if (!plan) return {}
+          return {
+            plans: {
+              ...s.plans,
+              [studentId]: { ...plan, goals: plan.goals.map((g) => (g.id === goalId ? { ...g, status } : g)) },
+            },
+          }
+        }),
+      deleteGoal: (studentId, goalId) =>
+        set((s) => {
+          const plan = s.plans[studentId]
+          if (!plan) return {}
+          return { plans: { ...s.plans, [studentId]: { ...plan, goals: plan.goals.filter((g) => g.id !== goalId) } } }
+        }),
+      addGoalNote: (studentId, goalId, text) =>
+        set((s) => {
+          const plan = s.plans[studentId]
+          if (!plan) return {}
+          const note = { id: uid(), ts: Date.now(), text }
+          return {
+            plans: {
+              ...s.plans,
+              [studentId]: {
+                ...plan,
+                goals: plan.goals.map((g) => (g.id === goalId ? { ...g, notes: [note, ...g.notes] } : g)),
+              },
+            },
+          }
+        }),
+      deleteGoalNote: (studentId, goalId, noteId) =>
+        set((s) => {
+          const plan = s.plans[studentId]
+          if (!plan) return {}
+          return {
+            plans: {
+              ...s.plans,
+              [studentId]: {
+                ...plan,
+                goals: plan.goals.map((g) =>
+                  g.id === goalId ? { ...g, notes: g.notes.filter((n) => n.id !== noteId) } : g,
+                ),
+              },
+            },
+          }
+        }),
+      deletePlan: (studentId) =>
+        set((s) => {
+          const plans = { ...s.plans }
+          delete plans[studentId]
+          return { plans }
+        }),
+
+      // ---------- assessment days ----------
+      // {id, name, date: 'YYYY-MM-DD', classIds: [], note, provided: { [studentId]: true }}
+      assessments: [],
+      addAssessment: (name, date, classIds, note = '') =>
+        set((s) => ({
+          assessments: [
+            { id: uid(), name, date, classIds, note, provided: {} },
+            ...s.assessments,
+          ],
+        })),
+      updateAssessment: (id, patch) =>
+        set((s) => ({ assessments: s.assessments.map((a) => (a.id === id ? { ...a, ...patch } : a)) })),
+      deleteAssessment: (id) => set((s) => ({ assessments: s.assessments.filter((a) => a.id !== id) })),
+      toggleProvided: (assessmentId, studentId) =>
+        set((s) => ({
+          assessments: s.assessments.map((a) =>
+            a.id === assessmentId
+              ? { ...a, provided: { ...a.provided, [studentId]: !a.provided[studentId] } }
+              : a,
+          ),
+        })),
+
       // ---------- quick log (behaviors + interventions + contacts) ----------
       logs: [], // {id, ts, classId, studentId, kind: 'behavior'|'intervention'|'contact', code, note}
       addLog: (entry) => {
@@ -196,10 +352,12 @@ export const useStore = create(
       deleteLog: (id) => set((s) => ({ logs: s.logs.filter((l) => l.id !== id) })),
 
       // ---------- radar flags ----------
-      flags: [], // {id, studentId, classId, concern, ts, active, note}
-      addFlag: (studentId, classId, concern, note = '') =>
+      // kind: 'watch' (struggling — the original Radar) | 'shine' (doing well — Radar's positive mode).
+      // Older flags predate `kind` and are treated as 'watch' by consumers.
+      flags: [], // {id, studentId, classId, concern, ts, active, note, kind}
+      addFlag: (studentId, classId, concern, note = '', kind = 'watch') =>
         set((s) => ({
-          flags: [{ id: uid(), studentId, classId, concern, ts: Date.now(), active: true, note }, ...s.flags],
+          flags: [{ id: uid(), studentId, classId, concern, ts: Date.now(), active: true, note, kind }, ...s.flags],
         })),
       resolveFlag: (id) =>
         set((s) => ({ flags: s.flags.map((f) => (f.id === id ? { ...f, active: false, resolvedTs: Date.now() } : f)) })),
@@ -340,7 +498,7 @@ export const useStore = create(
         const s = get()
         return JSON.stringify(
           {
-            version: 3,
+            version: 4,
             classes: s.classes,
             currentClassId: s.currentClassId,
             logs: s.logs,
@@ -352,6 +510,9 @@ export const useStore = create(
             autoSwitch: s.autoSwitch,
             behaviors: s.behaviors,
             interventions: s.interventions,
+            accommodationOptions: s.accommodationOptions,
+            plans: s.plans,
+            assessments: s.assessments,
           },
           null,
           2,
@@ -372,13 +533,16 @@ export const useStore = create(
           autoSwitch: data.autoSwitch ?? true,
           behaviors: data.behaviors ?? DEFAULT_BEHAVIORS,
           interventions: data.interventions ?? DEFAULT_INTERVENTIONS,
+          accommodationOptions: data.accommodationOptions ?? DEFAULT_ACCOMMODATIONS,
+          plans: data.plans ?? {},
+          assessments: data.assessments ?? [],
         })
       },
     }),
     {
       name: 'bos-classroom',
       // Keep ephemeral, session-only UI state out of storage.
-      partialize: ({ viewingStudent, pickedByClass, ...rest }) => rest,
+      partialize: ({ viewingStudent, viewingAssessment, pickedByClass, ...rest }) => rest,
     },
   ),
 )
@@ -396,16 +560,19 @@ const CONTACT_MAP = byCode(CONTACT_METHODS)
 export function useChipMaps() {
   const behaviors = useStore((s) => s.behaviors)
   const interventions = useStore((s) => s.interventions)
+  const accommodationOptions = useStore((s) => s.accommodationOptions)
   return useMemo(
     () => ({
       behaviors,
       interventions,
+      accommodationOptions,
       contactMethods: CONTACT_METHODS,
       bMap: byCode(behaviors),
       iMap: byCode(interventions),
+      aMap: byCode(accommodationOptions),
       cMap: CONTACT_MAP,
     }),
-    [behaviors, interventions],
+    [behaviors, interventions, accommodationOptions],
   )
 }
 

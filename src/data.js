@@ -49,6 +49,45 @@ export const CONCERNS = [
   { code: 'attendance', label: 'Attendance', emoji: '🗓️' },
 ]
 
+// Reasons to celebrate a student — the positive counterpart to CONCERNS, used
+// by Radar's "Shine" mode. Not tied to SUGGESTIONS (no intervention playbook needed).
+export const SHINE_REASONS = [
+  { code: 'participation', label: 'Great participation', emoji: '🙋' },
+  { code: 'questions', label: 'Asking great questions', emoji: '💡' },
+  { code: 'helping', label: 'Kind & helpful', emoji: '🤗' },
+  { code: 'improved', label: 'Most improved', emoji: '📈' },
+  { code: 'prepared', label: 'Consistently prepared', emoji: '🎒' },
+  { code: 'leadership', label: 'Showing leadership', emoji: '🧭' },
+]
+
+// Common IEP/504 accommodations — seeds the editable chip list in the store,
+// same treatment as behaviors/interventions (add/rename/reorder/remove in Setup).
+export const DEFAULT_ACCOMMODATIONS = [
+  { code: 'extendedtime', label: 'Extended time', emoji: '⏳' },
+  { code: 'preferentialseating', label: 'Preferential seating', emoji: '🪑' },
+  { code: 'breaks', label: 'Movement / sensory breaks', emoji: '🚶' },
+  { code: 'readaloud', label: 'Directions/text read aloud', emoji: '🔊' },
+  { code: 'chunked', label: 'Chunked assignments', emoji: '🧩' },
+  { code: 'reducedproblems', label: 'Reduced problem count', emoji: '➗' },
+  { code: 'separatesetting', label: 'Separate testing setting', emoji: '🚪' },
+  { code: 'calculator', label: 'Calculator allowed', emoji: '🔢' },
+  { code: 'scribe', label: 'Scribe / dictation', emoji: '✍️' },
+  { code: 'checkforunderstanding', label: 'Frequent check-ins', emoji: '✅' },
+  { code: 'visualschedule', label: 'Visual schedule', emoji: '🗂️' },
+  { code: 'behaviorplan', label: 'Behavior support plan', emoji: '🧭' },
+]
+
+export const GOAL_STATUSES = [
+  { code: 'not-started', label: 'Not started', emoji: '⬜' },
+  { code: 'in-progress', label: 'In progress', emoji: '🟡' },
+  { code: 'met', label: 'Met', emoji: '✅' },
+]
+
+export const PLAN_TYPES = [
+  { code: 'iep', label: 'IEP' },
+  { code: '504', label: '504' },
+]
+
 // How a parent/guardian was contacted. Logged as a 'contact'-kind entry.
 export const CONTACT_METHODS = [
   { code: 'phone', label: 'Phone call', emoji: '📞' },

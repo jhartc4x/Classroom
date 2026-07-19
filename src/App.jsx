@@ -11,6 +11,7 @@ import Toolbox from './components/Toolbox'
 import Trends from './components/Trends'
 import StudentModal from './components/StudentModal'
 import EndOfDay from './components/EndOfDay'
+import AssessmentPrep from './components/AssessmentPrep'
 
 const TABS = [
   { id: 'log', label: 'Quick Log', emoji: '✏️' },
@@ -125,6 +126,42 @@ function ReminderBanner() {
             className="rounded-full bg-amber-300 px-4 py-1.5 font-display font-bold hover:bg-amber-400 active:scale-95 cursor-pointer"
           >
             Got it ✓
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const todayStr = () => new Date().toISOString().slice(0, 10)
+
+// Same-day nudge for scheduled assessments, cross-referencing IEP/504 accommodations.
+function AssessmentBanner() {
+  const assessments = useStore((s) => s.assessments)
+  const openAssessment = useStore((s) => s.openAssessment)
+  const cls = useCurrentClass()
+  if (!cls) return null
+
+  const today = todayStr()
+  const dueToday = assessments.filter((a) => a.date === today && a.classIds.includes(cls.id))
+  if (dueToday.length === 0) return null
+
+  return (
+    <div className="mx-auto mb-4 flex max-w-5xl flex-col gap-2">
+      {dueToday.map((a) => (
+        <div
+          key={a.id}
+          className="sticker animate-slide-up flex items-center gap-3 rounded-2xl border-2 border-violet-300 bg-violet-100 px-4 py-3"
+        >
+          <span className="animate-wiggle text-2xl">📋</span>
+          <div className="flex-1 font-bold">
+            Today is <span className="italic">{a.name}</span> for this class — check accommodations.
+          </div>
+          <button
+            onClick={() => openAssessment(a.id)}
+            className="rounded-full bg-violet-300 px-4 py-1.5 font-display font-bold hover:bg-violet-400 active:scale-95 cursor-pointer"
+          >
+            View prep list
           </button>
         </div>
       ))}
@@ -283,6 +320,7 @@ export default function App() {
 
         <BackupNudge />
         <ReminderBanner />
+        <AssessmentBanner />
 
         <nav className="mb-6 flex flex-wrap gap-2">
           {TABS.map((t) => (
@@ -312,6 +350,7 @@ export default function App() {
       </div>
       <EndOfDay open={endOfDayOpen} onClose={() => setEndOfDayOpen(false)} />
       <StudentModal />
+      <AssessmentPrep />
       <Toasts toasts={toasts} />
     </ToastContext.Provider>
   )

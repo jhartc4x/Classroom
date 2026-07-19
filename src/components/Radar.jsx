@@ -1,33 +1,39 @@
 import { useState } from 'react'
 import { useStore, useChipMaps } from '../store'
-import { CONCERNS, SUGGESTIONS, PALETTES } from '../data'
+import { CONCERNS, SHINE_REASONS, SUGGESTIONS, PALETTES } from '../data'
 import { timeAgo, downloadFile, byCode, logsToCSV } from '../utils'
 import { Card, SectionTitle, EmptyState, BigButton, Chip, Modal } from './ui'
 import { useToast } from '../App'
 
 const concernByCode = byCode(CONCERNS)
+const shineByCode = byCode(SHINE_REASONS)
+const reasonByCode = (kind) => (kind === 'shine' ? shineByCode : concernByCode)
 const TWO_WEEKS = 14 * 24 * 60 * 60 * 1000
 
-function AddFlagModal({ open, onClose }) {
+// A flag predates `kind` if it was created before Shine mode existed — treat as 'watch'.
+const flagKind = (f) => f.kind ?? 'watch'
+
+function AddFlagModal({ open, onClose, kind }) {
   const classes = useStore((s) => s.classes)
   const addFlag = useStore((s) => s.addFlag)
   const toast = useToast()
   const [classId, setClassId] = useState(null)
   const [studentId, setStudentId] = useState(null)
-  const [concern, setConcern] = useState(null)
+  const [reason, setReason] = useState(null)
   const [note, setNote] = useState('')
 
   const cls = classes.find((c) => c.id === classId)
+  const reasons = kind === 'shine' ? SHINE_REASONS : CONCERNS
 
   const save = () => {
-    addFlag(studentId, classId, concern, note.trim())
-    toast('Added to the radar 🛟')
-    setClassId(null); setStudentId(null); setConcern(null); setNote('')
+    addFlag(studentId, classId, reason, note.trim(), kind)
+    toast(kind === 'shine' ? 'Added to Shine 🌟' : 'Added to the radar 🛟')
+    setClassId(null); setStudentId(null); setReason(null); setNote('')
     onClose()
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Add a student to the radar" emoji="🛟" wide>
+    <Modal open={open} onClose={onClose} title={kind === 'shine' ? 'Recognize a student' : 'Add a student to the radar'} emoji={kind === 'shine' ? '🌟' : '🛟'} wide>
       <div className="flex flex-col gap-4">
         <div>
           <div className="mb-1 text-sm font-bold text-ink/50">Class</div>
@@ -53,17 +59,17 @@ function AddFlagModal({ open, onClose }) {
         )}
         {studentId && (
           <div>
-            <div className="mb-1 text-sm font-bold text-ink/50">What are you seeing?</div>
+            <div className="mb-1 text-sm font-bold text-ink/50">{kind === 'shine' ? 'What are they doing well?' : 'What are you seeing?'}</div>
             <div className="flex flex-wrap gap-2">
-              {CONCERNS.map((c) => (
-                <Chip key={c.code} active={concern === c.code} onClick={() => setConcern(c.code)}>
+              {reasons.map((c) => (
+                <Chip key={c.code} active={reason === c.code} onClick={() => setReason(c.code)}>
                   {c.emoji} {c.label}
                 </Chip>
               ))}
             </div>
           </div>
         )}
-        {concern && (
+        {reason && (
           <>
             <input
               value={note}
@@ -72,7 +78,7 @@ function AddFlagModal({ open, onClose }) {
               className="w-full rounded-2xl bg-white px-4 py-2 text-sm ring-1 ring-ink/10 outline-none focus:ring-2 focus:ring-sky-400"
             />
             <BigButton className="bg-ink text-white" onClick={save}>
-              Add to radar
+              {kind === 'shine' ? 'Add to Shine' : 'Add to radar'}
             </BigButton>
           </>
         )}
@@ -81,27 +87,13 @@ function AddFlagModal({ open, onClose }) {
   )
 }
 
-function FlagCard({ flag }) {
-  const classes = useStore((s) => s.classes)
-  const logs = useStore((s) => s.logs)
+function WatchBody({ flag, cls, student, studentLogs, iMap }) {
   const addLog = useStore((s) => s.addLog)
-  const resolveFlag = useStore((s) => s.resolveFlag)
-  const openStudent = useStore((s) => s.openStudent)
   const toast = useToast()
   const [expanded, setExpanded] = useState(false)
 
-  const { bMap, iMap, behaviors, interventions } = useChipMaps()
-
-  const cls = classes.find((c) => c.id === flag.classId)
-  const student = cls?.students.find((s) => s.id === flag.studentId)
-  if (!cls || !student) return null
-  const pal = PALETTES[cls.color] ?? PALETTES.sky
   const concern = concernByCode[flag.concern]
-
-  const studentLogs = logs.filter((l) => l.studentId === student.id)
-  const recentNeg = studentLogs.filter(
-    (l) => l.kind === 'behavior' && bMap[l.code]?.polarity === 'neg' && Date.now() - l.ts < TWO_WEEKS,
-  )
+  const recentNeg = studentLogs.filter((l) => l.kind === 'behavior' && Date.now() - l.ts < TWO_WEEKS && l.__neg)
   const triedCodes = new Set(studentLogs.filter((l) => l.kind === 'intervention').map((l) => l.code))
   // Skip suggestions already tried, or whose intervention chip the teacher has since removed.
   const suggestions = (SUGGESTIONS[flag.concern] ?? []).filter((s) => !triedCodes.has(s.code) && iMap[s.code])
@@ -115,24 +107,12 @@ function FlagCard({ flag }) {
   }
 
   return (
-    <Card className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className={`rounded-xl px-2 py-0.5 font-display font-bold ${pal.chip}`}>{student.name}</span>
-        <span className="text-sm font-bold text-ink/50">{cls.emoji} {cls.name}</span>
-        <span className="rounded-full bg-ink/5 px-2 py-0.5 text-sm font-bold">
-          {concern.emoji} {concern.label}
-        </span>
-        <span className="ml-auto text-xs font-bold text-ink/40">flagged {timeAgo(flag.ts)}</span>
-      </div>
-      {flag.note && <div className="text-sm italic text-ink/60">“{flag.note}”</div>}
-
+    <>
       <div className="flex flex-wrap gap-3 text-sm font-bold text-ink/60">
         <span>⚠️ {recentNeg.length} incident{recentNeg.length === 1 ? '' : 's'} in 2 wks</span>
         <span>
           🧰 tried:{' '}
-          {triedCodes.size === 0
-            ? 'nothing yet'
-            : [...triedCodes].map((c) => iMap[c]?.emoji ?? '·').join(' ')}
+          {triedCodes.size === 0 ? 'nothing yet' : [...triedCodes].map((c) => iMap[c]?.emoji ?? '·').join(' ')}
         </span>
       </div>
 
@@ -172,6 +152,59 @@ function FlagCard({ flag }) {
           </div>
         )}
       </div>
+    </>
+  )
+}
+
+function ShineBody({ studentLogs }) {
+  const recentPos = studentLogs.filter((l) => l.kind === 'behavior' && Date.now() - l.ts < TWO_WEEKS && l.__pos)
+  return (
+    <div className="flex flex-wrap gap-3 text-sm font-bold text-ink/60">
+      <span>🌟 {recentPos.length} positive mark{recentPos.length === 1 ? '' : 's'} in 2 wks</span>
+    </div>
+  )
+}
+
+function FlagCard({ flag }) {
+  const classes = useStore((s) => s.classes)
+  const logs = useStore((s) => s.logs)
+  const resolveFlag = useStore((s) => s.resolveFlag)
+  const openStudent = useStore((s) => s.openStudent)
+  const toast = useToast()
+
+  const { bMap, iMap, behaviors, interventions } = useChipMaps()
+  const kind = flagKind(flag)
+
+  const cls = classes.find((c) => c.id === flag.classId)
+  const student = cls?.students.find((s) => s.id === flag.studentId)
+  if (!cls || !student) return null
+  const pal = PALETTES[cls.color] ?? PALETTES.sky
+  const reason = reasonByCode(kind)[flag.concern]
+  if (!reason) return null
+
+  const studentLogs = logs
+    .filter((l) => l.studentId === student.id)
+    .map((l) => ({ ...l, __neg: bMap[l.code]?.polarity === 'neg', __pos: bMap[l.code]?.polarity === 'pos' }))
+
+  return (
+    <Card className={`flex flex-col gap-3 ${kind === 'shine' ? 'ring-1 ring-amber-100' : ''}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`rounded-xl px-2 py-0.5 font-display font-bold ${pal.chip}`}>{student.name}</span>
+        <span className="text-sm font-bold text-ink/50">{cls.emoji} {cls.name}</span>
+        <span className="rounded-full bg-ink/5 px-2 py-0.5 text-sm font-bold">
+          {reason.emoji} {reason.label}
+        </span>
+        <span className="ml-auto text-xs font-bold text-ink/40">
+          {kind === 'shine' ? 'noted' : 'flagged'} {timeAgo(flag.ts)}
+        </span>
+      </div>
+      {flag.note && <div className="text-sm italic text-ink/60">“{flag.note}”</div>}
+
+      {kind === 'shine' ? (
+        <ShineBody studentLogs={studentLogs} />
+      ) : (
+        <WatchBody flag={flag} cls={cls} student={student} studentLogs={studentLogs} iMap={iMap} />
+      )}
 
       <div className="flex justify-end gap-2">
         <button
@@ -196,10 +229,13 @@ function FlagCard({ flag }) {
           📊 History CSV
         </button>
         <button
-          onClick={() => { resolveFlag(flag.id); toast(`${student.name} is off the radar — nice work! 🎉`) }}
+          onClick={() => {
+            resolveFlag(flag.id)
+            toast(kind === 'shine' ? `Noted — keep it up, ${student.name}! 🌟` : `${student.name} is off the radar — nice work! 🎉`)
+          }}
           className="rounded-full bg-ink/5 px-4 py-1.5 text-sm font-bold hover:bg-emerald-100 hover:text-emerald-800 cursor-pointer"
         >
-          🎉 Doing better — resolve
+          {kind === 'shine' ? '✓ Noted' : '🎉 Doing better — resolve'}
         </button>
       </div>
     </Card>
@@ -214,7 +250,7 @@ function AutoWatch() {
   const { bMap } = useChipMaps()
   const toast = useToast()
 
-  const flaggedIds = new Set(flags.filter((f) => f.active).map((f) => f.studentId))
+  const flaggedIds = new Set(flags.filter((f) => f.active && flagKind(f) === 'watch').map((f) => f.studentId))
   const counts = {}
   for (const l of logs) {
     if (l.kind !== 'behavior') continue
@@ -236,7 +272,7 @@ function AutoWatch() {
         {candidates.map(({ student, cls, n }) => (
           <button
             key={student.id}
-            onClick={() => { addFlag(student.id, cls.id, 'behavior', `Auto-suggested after ${n} incidents`); toast(`${student.name} added to radar 🛟`) }}
+            onClick={() => { addFlag(student.id, cls.id, 'behavior', `Auto-suggested after ${n} incidents`, 'watch'); toast(`${student.name} added to radar 🛟`) }}
             className="rounded-full bg-white px-3 py-1.5 text-sm font-bold ring-1 ring-amber-300 hover:scale-105 active:scale-95 cursor-pointer"
           >
             {student.name} · ⚠️ {n} — add to radar?
@@ -247,35 +283,98 @@ function AutoWatch() {
   )
 }
 
+function AutoShine() {
+  const classes = useStore((s) => s.classes)
+  const logs = useStore((s) => s.logs)
+  const flags = useStore((s) => s.flags)
+  const addFlag = useStore((s) => s.addFlag)
+  const { bMap } = useChipMaps()
+  const toast = useToast()
+
+  const flaggedIds = new Set(flags.filter((f) => f.active && flagKind(f) === 'shine').map((f) => f.studentId))
+  const counts = {}
+  for (const l of logs) {
+    if (l.kind !== 'behavior') continue
+    if (bMap[l.code]?.polarity !== 'pos') continue
+    if (Date.now() - l.ts > TWO_WEEKS) continue
+    counts[l.studentId] = (counts[l.studentId] ?? 0) + 1
+  }
+  const candidates = []
+  for (const c of classes)
+    for (const st of c.students)
+      if (!flaggedIds.has(st.id) && (counts[st.id] ?? 0) >= 3)
+        candidates.push({ student: st, cls: c, n: counts[st.id] })
+
+  if (candidates.length === 0) return null
+  return (
+    <div className="mb-6 rounded-3xl border-2 border-dashed border-emerald-300 bg-emerald-50 p-4">
+      <div className="mb-2 font-display font-bold">✨ Racking up positives (3+ in 2 weeks)</div>
+      <div className="flex flex-wrap gap-2">
+        {candidates.map(({ student, cls, n }) => (
+          <button
+            key={student.id}
+            onClick={() => { addFlag(student.id, cls.id, 'participation', `Auto-suggested after ${n} positive marks`, 'shine'); toast(`${student.name} added to Shine 🌟`) }}
+            className="rounded-full bg-white px-3 py-1.5 text-sm font-bold ring-1 ring-emerald-300 hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            {student.name} · 🌟 {n} — add to Shine?
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Radar() {
   const flags = useStore((s) => s.flags)
   const classes = useStore((s) => s.classes)
+  const [mode, setMode] = useState('watch')
   const [adding, setAdding] = useState(false)
-  const active = flags.filter((f) => f.active)
+  const active = flags.filter((f) => f.active && flagKind(f) === mode)
 
   if (classes.length === 0)
     return <EmptyState emoji="🛟" title="Set up your classes first" hint="The radar tracks students you're keeping an eye on — add classes in Setup." />
 
+  const isShine = mode === 'shine'
+
   return (
     <div>
       <SectionTitle
-        emoji="🛟"
+        emoji={isShine ? '🌟' : '🛟'}
         right={
-          <BigButton className="bg-ink text-white" onClick={() => setAdding(true)}>
-            + Add student
-          </BigButton>
+          <div className="flex items-center gap-2">
+            <div className="flex overflow-hidden rounded-2xl text-sm font-bold ring-1 ring-ink/10">
+              <button onClick={() => setMode('watch')} className={`px-3 py-2 cursor-pointer ${mode === 'watch' ? 'bg-ink text-white' : 'hover:bg-ink/5'}`}>
+                🛟 Watch
+              </button>
+              <button onClick={() => setMode('shine')} className={`px-3 py-2 cursor-pointer ${mode === 'shine' ? 'bg-ink text-white' : 'hover:bg-ink/5'}`}>
+                🌟 Shine
+              </button>
+            </div>
+            <BigButton className="bg-ink text-white" onClick={() => setAdding(true)}>
+              {isShine ? '+ Recognize student' : '+ Add student'}
+            </BigButton>
+          </div>
         }
       >
-        Students on your radar
+        {isShine ? 'Students to recognize' : 'Students on your radar'}
       </SectionTitle>
-      <AutoWatch />
+      {isShine ? <AutoShine /> : <AutoWatch />}
       {active.length === 0 ? (
-        <EmptyState
-          emoji="🌤️"
-          title="Radar is clear"
-          hint="Flag a student you're worried about — struggling, checked out, or having a rough stretch — and get suggested next moves."
-          action={<BigButton className="bg-ink text-white" onClick={() => setAdding(true)}>+ Add student</BigButton>}
-        />
+        isShine ? (
+          <EmptyState
+            emoji="🌱"
+            title="Nobody flagged yet"
+            hint="Recognize a student who's participating well, asking great questions, or being a good citizen — not just the ones who've improved from a rough patch."
+            action={<BigButton className="bg-ink text-white" onClick={() => setAdding(true)}>+ Recognize student</BigButton>}
+          />
+        ) : (
+          <EmptyState
+            emoji="🌤️"
+            title="Radar is clear"
+            hint="Flag a student you're worried about — struggling, checked out, or having a rough stretch — and get suggested next moves."
+            action={<BigButton className="bg-ink text-white" onClick={() => setAdding(true)}>+ Add student</BigButton>}
+          />
+        )
       ) : (
         <div className="flex flex-col gap-4">
           {active.map((f) => (
@@ -283,7 +382,7 @@ export default function Radar() {
           ))}
         </div>
       )}
-      <AddFlagModal open={adding} onClose={() => setAdding(false)} />
+      <AddFlagModal open={adding} onClose={() => setAdding(false)} kind={mode} />
     </div>
   )
 }

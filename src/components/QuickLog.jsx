@@ -10,6 +10,7 @@ function StudentGrid({ selected, onSelect }) {
   const cls = useCurrentClass()
   const logs = useStore((s) => s.logs)
   const openStudent = useStore((s) => s.openStudent)
+  const plans = useStore((s) => s.plans)
   const { bMap } = useChipMaps()
   const pal = PALETTES[cls.color] ?? PALETTES.sky
   const today = new Date().setHours(0, 0, 0, 0)
@@ -21,6 +22,7 @@ function StudentGrid({ selected, onSelect }) {
         const negs = todayLogs.filter((l) => l.kind === 'behavior' && bMap[l.code]?.polarity === 'neg').length
         const pos = todayLogs.filter((l) => l.kind === 'behavior' && bMap[l.code]?.polarity === 'pos').length
         const active = selected === st.id
+        const hasPlan = !!plans[st.id]?.type
         return (
           <div key={st.id} className="relative">
             <button
@@ -29,7 +31,10 @@ function StudentGrid({ selected, onSelect }) {
                 active ? `${pal.chip} ring-2 ${pal.ring} -rotate-1 scale-105` : 'bg-white'
               }`}
             >
-              <div className="font-display font-bold">{st.name}</div>
+              <div className="flex items-center gap-1.5 font-display font-bold">
+                {hasPlan && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-400" title="Has a support plan on file — tap 📇 for details" />}
+                {st.name}
+              </div>
               <div className="mt-0.5 flex gap-2 text-xs font-bold text-ink/50">
                 {pos > 0 && <span>🌟 {pos}</span>}
                 {negs > 0 && <span>⚠️ {negs}</span>}
@@ -67,6 +72,7 @@ function SeatMarks({ studentId, bMap }) {
 
 function SeatingView({ selected, onSelect }) {
   const cls = useCurrentClass()
+  const plans = useStore((s) => s.plans)
   const { bMap } = useChipMaps()
   const pal = PALETTES[cls.color] ?? PALETTES.sky
   const seating = cls.seating
@@ -103,7 +109,12 @@ function SeatingView({ selected, onSelect }) {
                 active ? `${pal.chip} ring-2 ${pal.ring} scale-105` : 'bg-white'
               }`}
             >
-              <span className="leading-tight">{nameOf(occupant)}</span>
+              <span className="flex items-center gap-1 leading-tight">
+                {plans[occupant]?.type && (
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-violet-400" title="Has a support plan on file" />
+                )}
+                {nameOf(occupant)}
+              </span>
               <SeatMarks studentId={occupant} bMap={bMap} />
             </button>
           )

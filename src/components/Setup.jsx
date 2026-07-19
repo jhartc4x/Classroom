@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useStore } from '../store'
 import { PALETTES, PALETTE_KEYS, CLASS_EMOJIS } from '../data'
 import { sortedPeriods, downloadFile, logsToCSV } from '../utils'
-import { Card, SectionTitle, EmptyState, BigButton, Modal } from './ui'
+import { Card, SectionTitle, EmptyState, BigButton, Modal, Chip } from './ui'
 import { useToast } from '../App'
 import SeatingEditor from './SeatingEditor'
 
@@ -389,6 +389,82 @@ function ChipManager() {
   )
 }
 
+function AccommodationRow({ a, first, last }) {
+  const updateAccommodationOption = useStore((s) => s.updateAccommodationOption)
+  const deleteAccommodationOption = useStore((s) => s.deleteAccommodationOption)
+  const moveAccommodationOption = useStore((s) => s.moveAccommodationOption)
+  return (
+    <div className="flex items-center gap-2">
+      <EmojiInput value={a.emoji} onChange={(v) => updateAccommodationOption(a.code, { emoji: v })} />
+      <input
+        value={a.label}
+        onChange={(e) => updateAccommodationOption(a.code, { label: e.target.value })}
+        className="min-w-0 flex-1 rounded-xl bg-cream px-3 py-1.5 text-sm font-bold ring-1 ring-ink/10 outline-none focus:ring-2 focus:ring-violet-400"
+      />
+      <RowControls
+        first={first}
+        last={last}
+        onUp={() => moveAccommodationOption(a.code, -1)}
+        onDown={() => moveAccommodationOption(a.code, 1)}
+        onDelete={() => deleteAccommodationOption(a.code)}
+      />
+    </div>
+  )
+}
+
+function AccommodationManager() {
+  const accommodationOptions = useStore((s) => s.accommodationOptions)
+  const addAccommodationOption = useStore((s) => s.addAccommodationOption)
+  const resetAccommodationOptions = useStore((s) => s.resetAccommodationOptions)
+  const toast = useToast()
+  const [emoji, setEmoji] = useState('🗂️')
+  const [label, setLabel] = useState('')
+
+  const add = () => {
+    if (!label.trim()) return
+    addAccommodationOption(label.trim(), emoji.trim() || '🗂️')
+    toast(`Accommodation "${label.trim()}" added`)
+    setLabel(''); setEmoji('🗂️')
+  }
+
+  return (
+    <div className="mt-10">
+      <SectionTitle emoji="🎯">IEP / 504 accommodation options</SectionTitle>
+      <p className="mb-3 -mt-1 text-sm text-ink/50">
+        The quick-pick list used when setting up a student&apos;s support plan. Customize it to match your
+        district&apos;s language — you can still type a one-off accommodation for a specific student too.
+      </p>
+      <Card className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <div className="font-display font-bold">Accommodations</div>
+          <button
+            onClick={() => { resetAccommodationOptions(); toast('Accommodations reset to defaults') }}
+            className="text-xs font-bold text-ink/40 hover:text-ink cursor-pointer"
+          >
+            reset to defaults
+          </button>
+        </div>
+        {accommodationOptions.map((a, idx) => (
+          <AccommodationRow key={a.code} a={a} first={idx === 0} last={idx === accommodationOptions.length - 1} />
+        ))}
+        <div className="mt-2 flex items-center gap-2 border-t border-ink/10 pt-3">
+          <EmojiInput value={emoji} onChange={setEmoji} />
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+            placeholder="New accommodation…"
+            className="min-w-0 flex-1 rounded-xl bg-cream px-3 py-1.5 text-sm font-bold ring-1 ring-ink/10 outline-none focus:ring-2 focus:ring-violet-400"
+          />
+          <BigButton className="shrink-0 bg-ink text-white text-sm" onClick={add} disabled={!label.trim()}>
+            Add
+          </BigButton>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
 function ScheduleCard({ schedule }) {
   const classes = useStore((s) => s.classes)
   const activeScheduleId = useStore((s) => s.activeScheduleId)
@@ -567,6 +643,141 @@ function BellSchedules() {
   )
 }
 
+function AssessmentRow({ a }) {
+  const classes = useStore((s) => s.classes)
+  const plans = useStore((s) => s.plans)
+  const updateAssessment = useStore((s) => s.updateAssessment)
+  const deleteAssessment = useStore((s) => s.deleteAssessment)
+  const openAssessment = useStore((s) => s.openAssessment)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const needCount = a.classIds.reduce((n, cid) => {
+    const cls = classes.find((c) => c.id === cid)
+    if (!cls) return n
+    return (
+      n +
+      cls.students.filter((st) => {
+        const plan = plans[st.id]
+        return plan?.type && (plan.accommodationCodes.length > 0 || plan.customAccommodations.length > 0)
+      }).length
+    )
+  }, 0)
+
+  const classNames = a.classIds
+    .map((cid) => classes.find((c) => c.id === cid))
+    .filter(Boolean)
+    .map((c) => `${c.emoji} ${c.name}`)
+    .join(' · ')
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white p-3 ring-1 ring-ink/5">
+      <input
+        value={a.name}
+        onChange={(e) => updateAssessment(a.id, { name: e.target.value })}
+        className="min-w-0 flex-1 rounded-xl bg-cream px-3 py-1.5 font-bold ring-1 ring-ink/10 outline-none focus:ring-2 focus:ring-violet-400"
+      />
+      <input
+        type="date"
+        value={a.date}
+        onChange={(e) => updateAssessment(a.id, { date: e.target.value })}
+        className="rounded-xl bg-cream px-2 py-1.5 text-sm font-bold ring-1 ring-ink/10 outline-none focus:ring-2 focus:ring-violet-400"
+      />
+      <span className="text-xs font-bold text-ink/40">{classNames}</span>
+      {needCount > 0 && (
+        <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-800">
+          🎯 {needCount} need accommodations
+        </span>
+      )}
+      <button
+        onClick={() => openAssessment(a.id)}
+        className="rounded-full bg-ink/5 px-3 py-1 text-sm font-bold hover:bg-violet-100 hover:text-violet-800 cursor-pointer"
+      >
+        📋 Prep list
+      </button>
+      {confirmDelete ? (
+        <span className="flex items-center gap-2 text-sm font-bold">
+          Delete?
+          <button onClick={() => deleteAssessment(a.id)} className="rounded-full bg-rose-400 px-2.5 py-1 text-white hover:bg-rose-500 cursor-pointer">
+            Yes
+          </button>
+          <button onClick={() => setConfirmDelete(false)} className="text-ink/50 hover:underline cursor-pointer">
+            cancel
+          </button>
+        </span>
+      ) : (
+        <button onClick={() => setConfirmDelete(true)} className="text-sm font-bold text-ink/30 hover:text-rose-500 cursor-pointer">
+          delete
+        </button>
+      )}
+    </div>
+  )
+}
+
+function AssessmentManager() {
+  const classes = useStore((s) => s.classes)
+  const assessments = useStore((s) => s.assessments)
+  const addAssessment = useStore((s) => s.addAssessment)
+  const toast = useToast()
+  const [name, setName] = useState('')
+  const [date, setDate] = useState('')
+  const [classIds, setClassIds] = useState([])
+
+  const toggleClass = (id) => setClassIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))
+
+  const add = () => {
+    if (!name.trim() || classIds.length === 0) return
+    addAssessment(name.trim(), date, classIds)
+    toast(`"${name.trim()}" scheduled 📋`)
+    setName(''); setDate(''); setClassIds([])
+  }
+
+  const sorted = [...assessments].sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'))
+
+  return (
+    <div className="mt-10">
+      <SectionTitle emoji="📋">Assessment days</SectionTitle>
+      <p className="mb-3 -mt-1 text-sm text-ink/50">
+        Schedule a test or assessment day and the app will cross-reference IEP/504 accommodations for the
+        students in that class — a same-day reminder shows up, plus a prep checklist any time.
+      </p>
+      <Card className="mb-4 flex flex-col gap-3">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder='Assessment name — e.g. "Unit 3 Test"'
+          className="w-full rounded-2xl bg-cream px-4 py-2 font-bold ring-1 ring-ink/10 outline-none focus:ring-2 focus:ring-violet-400"
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="rounded-2xl bg-cream px-3 py-2 font-bold ring-1 ring-ink/10 outline-none focus:ring-2 focus:ring-violet-400"
+          />
+          {classes.map((c) => (
+            <Chip key={c.id} active={classIds.includes(c.id)} onClick={() => toggleClass(c.id)}>
+              {c.emoji} {c.name}
+            </Chip>
+          ))}
+          <BigButton className="ml-auto bg-ink text-white" onClick={add} disabled={!name.trim() || classIds.length === 0}>
+            + Schedule
+          </BigButton>
+        </div>
+      </Card>
+
+      {sorted.length === 0 ? (
+        <EmptyState emoji="🗓️" title="No assessment days scheduled" hint="Add one above whenever you know a test date." />
+      ) : (
+        <div className="flex flex-col gap-2">
+          {sorted.map((a) => (
+            <AssessmentRow key={a.id} a={a} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function BackupControls() {
   const exportData = useStore((s) => s.exportData)
   const importData = useStore((s) => s.importData)
@@ -682,7 +893,9 @@ export default function Setup() {
       )}
 
       <ChipManager />
+      <AccommodationManager />
       <BellSchedules />
+      <AssessmentManager />
       <BackupControls />
       <AddClassModal open={adding} onClose={() => setAdding(false)} />
     </div>

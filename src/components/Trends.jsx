@@ -115,7 +115,7 @@ export default function Trends() {
 
     // Students to watch — incident counts + "slipping" (last 7d vs prior fortnight)
     const now = Date.now()
-    const flaggedIds = new Set(flags.filter((f) => f.active).map((f) => f.studentId))
+    const flaggedIds = new Set(flags.filter((f) => f.active && (f.kind ?? 'watch') === 'watch').map((f) => f.studentId))
     const students = []
     for (const c of classes) {
       if (scope === 'current' && c.id !== currentClassId) continue
