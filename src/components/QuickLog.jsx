@@ -45,6 +45,7 @@ function StudentGrid({ selected, onSelect }) {
               onClick={() => openStudent(st.id)}
               className="absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-sm opacity-50 hover:bg-ink/10 hover:opacity-100 cursor-pointer"
               title={`${st.name}'s history & parent contacts`}
+              aria-label={`Open ${st.name}'s history and parent contacts`}
             >
               📇
             </button>

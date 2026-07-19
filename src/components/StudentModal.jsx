@@ -51,6 +51,7 @@ function GoalRow({ studentId, goal }) {
           onClick={() => deleteGoal(studentId, goal.id)}
           className="shrink-0 text-xs font-bold text-ink/30 hover:text-rose-500 cursor-pointer"
           title="Delete goal"
+          aria-label={`Delete goal: ${goal.text}`}
         >
           ✕
         </button>
@@ -387,6 +388,7 @@ export default function StudentModal() {
                       onClick={() => { deleteLog(l.id); toast('Entry removed ↩️') }}
                       className="shrink-0 text-xs font-bold text-ink/30 hover:text-rose-500 cursor-pointer"
                       title="Delete this entry"
+                      aria-label={`Delete ${describeLog(l, bMap, iMap, cMap)} entry`}
                     >
                       ✕
                     </button>

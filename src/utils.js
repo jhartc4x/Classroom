@@ -47,7 +47,12 @@ export const timeAgo = (ts) => {
   return `${days}d ago`
 }
 
-export const todayKey = () => new Date().toISOString().slice(0, 10)
+// Calendar features use the device's local date, not UTC. This keeps an assessment
+// scheduled for "today" visible throughout the local school day.
+export const todayKey = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 // ---------- bell schedule helpers ----------
 export const parseHM = (hm) => {

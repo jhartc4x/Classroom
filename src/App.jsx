@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, createContext, useContext, useCallback } from 'react'
 import { useStore, useCurrentClass } from './store'
 import { PALETTES } from './data'
-import { findCurrentPeriod, findNextPeriod, minutesNow, fmtHM, parseHM, downloadFile } from './utils'
+import { findCurrentPeriod, findNextPeriod, minutesNow, fmtHM, parseHM, downloadFile, todayKey } from './utils'
 import Timers from './components/Timers'
 import QuickLog from './components/QuickLog'
 import Reminders from './components/Reminders'
@@ -12,6 +12,8 @@ import Trends from './components/Trends'
 import StudentModal from './components/StudentModal'
 import EndOfDay from './components/EndOfDay'
 import AssessmentPrep from './components/AssessmentPrep'
+import Guide from './components/Guide'
+import { Modal } from './components/ui'
 
 const TABS = [
   { id: 'log', label: 'Quick Log', emoji: '✏️' },
@@ -20,6 +22,7 @@ const TABS = [
   { id: 'reminders', label: 'Reminders', emoji: '📣' },
   { id: 'radar', label: 'Radar', emoji: '🛟' },
   { id: 'trends', label: 'Trends', emoji: '📈' },
+  { id: 'guide', label: 'Guide', emoji: '🧭' },
   { id: 'setup', label: 'Setup', emoji: '🎒' },
 ]
 
@@ -65,7 +68,7 @@ function BackupNudge() {
   const daysSince = Math.floor((Date.now() - reference) / (24 * 60 * 60 * 1000))
   const doBackup = () => {
     downloadFile(
-      `classroom-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      `classroom-backup-${todayKey()}.json`,
       exportData(),
       'application/json',
     )
@@ -133,8 +136,6 @@ function ReminderBanner() {
   )
 }
 
-const todayStr = () => new Date().toISOString().slice(0, 10)
-
 // Same-day nudge for scheduled assessments, cross-referencing IEP/504 accommodations.
 function AssessmentBanner() {
   const assessments = useStore((s) => s.assessments)
@@ -142,7 +143,7 @@ function AssessmentBanner() {
   const cls = useCurrentClass()
   if (!cls) return null
 
-  const today = todayStr()
+  const today = todayKey()
   const dueToday = assessments.filter((a) => a.date === today && a.classIds.includes(cls.id))
   if (dueToday.length === 0) return null
 
@@ -193,6 +194,72 @@ function ClassPicker() {
         )
       })}
     </div>
+  )
+}
+
+function BackupStatus({ onGoToSetup }) {
+  const classes = useStore((s) => s.classes)
+  const lastBackupTs = useStore((s) => s.lastBackupTs)
+  if (classes.length === 0) return null
+
+  const daysSince = lastBackupTs ? Math.floor((Date.now() - lastBackupTs) / (24 * 60 * 60 * 1000)) : null
+  const overdue = daysSince == null || daysSince >= 7
+  const label = daysSince == null ? 'Back up' : daysSince === 0 ? 'Backed up today' : `${daysSince}d since backup`
+
+  return (
+    <button
+      onClick={onGoToSetup}
+      title="Open backup and export options"
+      className={`rounded-full px-3 py-1.5 text-sm font-bold ring-1 transition-all hover:scale-105 active:scale-95 cursor-pointer ${
+        overdue ? 'bg-amber-100 text-amber-900 ring-amber-300' : 'bg-white/70 text-ink/70 ring-ink/10'
+      }`}
+    >
+      💾 {label}
+    </button>
+  )
+}
+
+function StudentSearch({ open, onClose }) {
+  const classes = useStore((s) => s.classes)
+  const setCurrentClass = useStore((s) => s.setCurrentClass)
+  const openStudent = useStore((s) => s.openStudent)
+  const [query, setQuery] = useState('')
+  const normalized = query.trim().toLocaleLowerCase()
+  const matches = normalized
+    ? classes.flatMap((cls) => cls.students.filter((student) => student.name.toLocaleLowerCase().includes(normalized)).map((student) => ({ cls, student }))).slice(0, 12)
+    : []
+
+  const choose = ({ cls, student }) => {
+    setCurrentClass(cls.id)
+    openStudent(student.id)
+    setQuery('')
+    onClose()
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Find a student" emoji="🔎">
+      <input
+        autoFocus
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Type a student name…"
+        className="w-full rounded-2xl bg-white px-4 py-2 ring-1 ring-ink/10 outline-none focus:ring-2 focus:ring-sky-400"
+      />
+      <div className="mt-3 flex flex-col gap-2">
+        {!normalized && <p className="px-1 text-sm text-ink/60">Search every class and jump straight to a student&apos;s private card.</p>}
+        {normalized && matches.length === 0 && <p className="px-1 text-sm text-ink/60">No students match “{query}”.</p>}
+        {matches.map((match) => (
+          <button
+            key={match.student.id}
+            onClick={() => choose(match)}
+            className="flex items-center justify-between rounded-2xl bg-cream px-4 py-3 text-left font-bold hover:bg-sky-100 cursor-pointer"
+          >
+            <span>{match.student.name}</span>
+            <span className="text-sm text-ink/60">{match.cls.emoji} {match.cls.name}</span>
+          </button>
+        ))}
+      </div>
+    </Modal>
   )
 }
 
@@ -285,9 +352,10 @@ function BellPill({ onGoToSetup }) {
 
 export default function App() {
   const classes = useStore((s) => s.classes)
-  const [tab, setTab] = useState(classes.length === 0 ? 'setup' : 'log')
+  const [tab, setTab] = useState(classes.length === 0 ? 'guide' : 'log')
   const [toasts, setToasts] = useState([])
   const [endOfDayOpen, setEndOfDayOpen] = useState(false)
+  const [studentSearchOpen, setStudentSearchOpen] = useState(false)
 
   const toast = useCallback((text) => {
     const id = Math.random()
@@ -305,6 +373,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             <MiniTimer onGoToTimers={() => setTab('timers')} />
             <BellPill onGoToSetup={() => setTab('setup')} />
+            <BackupStatus onGoToSetup={() => setTab('setup')} />
             {classes.length > 0 && (
               <button
                 onClick={() => setEndOfDayOpen(true)}
@@ -315,6 +384,14 @@ export default function App() {
               </button>
             )}
             <ClassPicker />
+            {classes.length > 0 && (
+              <button
+                onClick={() => setStudentSearchOpen(true)}
+                className="rounded-full bg-white/70 px-3 py-1.5 text-sm font-bold ring-1 ring-ink/10 hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                🔎 Find student
+              </button>
+            )}
           </div>
         </header>
 
@@ -322,12 +399,13 @@ export default function App() {
         <ReminderBanner />
         <AssessmentBanner />
 
-        <nav className="mb-6 flex flex-wrap gap-2">
+        <nav className="mb-6 flex flex-nowrap gap-2 overflow-x-auto pb-2" aria-label="App sections">
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`rounded-2xl px-4 py-2 font-display font-bold transition-all active:scale-95 cursor-pointer ${
+              aria-current={tab === t.id ? 'page' : undefined}
+              className={`shrink-0 rounded-2xl px-4 py-2 font-display font-bold transition-all active:scale-95 cursor-pointer ${
                 tab === t.id
                   ? 'sticker -rotate-1 scale-105 bg-ink text-white'
                   : 'bg-white/70 ring-1 ring-ink/10 hover:scale-105 hover:-rotate-1'
@@ -345,11 +423,13 @@ export default function App() {
           {tab === 'reminders' && <Reminders />}
           {tab === 'radar' && <Radar />}
           {tab === 'trends' && <Trends />}
+          {tab === 'guide' && <Guide onNavigate={setTab} hasClasses={classes.length > 0} />}
           {tab === 'setup' && <Setup />}
         </main>
       </div>
       <EndOfDay open={endOfDayOpen} onClose={() => setEndOfDayOpen(false)} />
       <StudentModal />
+      <StudentSearch open={studentSearchOpen} onClose={() => setStudentSearchOpen(false)} />
       <AssessmentPrep />
       <Toasts toasts={toasts} />
     </ToastContext.Provider>

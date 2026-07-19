@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useStore } from '../store'
 import { PALETTES, PALETTE_KEYS, CLASS_EMOJIS } from '../data'
-import { sortedPeriods, downloadFile, logsToCSV } from '../utils'
+import { sortedPeriods, downloadFile, logsToCSV, todayKey } from '../utils'
 import { Card, SectionTitle, EmptyState, BigButton, Modal, Chip } from './ui'
 import { useToast } from '../App'
 import SeatingEditor from './SeatingEditor'
@@ -78,11 +78,13 @@ function RosterEditor({ cls }) {
   const removeStudent = useStore((s) => s.removeStudent)
   const updateClass = useStore((s) => s.updateClass)
   const deleteClass = useStore((s) => s.deleteClass)
+  const logs = useStore((s) => s.logs)
   const toast = useToast()
   const [text, setText] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [seatingOpen, setSeatingOpen] = useState(false)
   const pal = PALETTES[cls.color] ?? PALETTES.sky
+  const logCount = logs.filter((log) => log.classId === cls.id).length
 
   const add = () => {
     const names = text
@@ -111,13 +113,13 @@ function RosterEditor({ cls }) {
           </button>
         )}
         {confirmDelete ? (
-          <span className="ml-auto flex items-center gap-2 text-sm font-bold">
-            Delete class & its logs?
+          <span className="ml-auto flex flex-wrap items-center justify-end gap-2 text-sm font-bold">
+            Delete {cls.name}, {logCount} log{logCount === 1 ? '' : 's'}, and its student plans?
             <button
               onClick={() => { deleteClass(cls.id); toast(`${cls.name} deleted`) }}
               className="rounded-full bg-rose-400 px-3 py-1 text-white hover:bg-rose-500 cursor-pointer"
             >
-              Yes, delete
+              Delete class
             </button>
             <button onClick={() => setConfirmDelete(false)} className="text-ink/50 hover:underline cursor-pointer">
               cancel
@@ -141,7 +143,8 @@ function RosterEditor({ cls }) {
               <button
                 onClick={() => removeStudent(cls.id, st.id)}
                 className="hidden text-ink/40 hover:text-rose-500 group-hover:inline cursor-pointer"
-                title="Remove student"
+                title={`Remove ${st.name}`}
+                aria-label={`Remove ${st.name} from ${cls.name}`}
               >
                 ✕
               </button>
@@ -177,7 +180,7 @@ function EmojiInput({ value, onChange }) {
   )
 }
 
-function RowControls({ first, last, onUp, onDown, onDelete }) {
+function RowControls({ first, last, onUp, onDown, onDelete, itemName }) {
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       <button
@@ -185,6 +188,7 @@ function RowControls({ first, last, onUp, onDown, onDelete }) {
         disabled={first}
         className="rounded-lg px-1.5 py-1 text-sm font-bold text-ink/40 hover:bg-ink/5 disabled:opacity-20 cursor-pointer disabled:cursor-default"
         title="Move up"
+        aria-label={`Move ${itemName} up`}
       >
         ↑
       </button>
@@ -193,6 +197,7 @@ function RowControls({ first, last, onUp, onDown, onDelete }) {
         disabled={last}
         className="rounded-lg px-1.5 py-1 text-sm font-bold text-ink/40 hover:bg-ink/5 disabled:opacity-20 cursor-pointer disabled:cursor-default"
         title="Move down"
+        aria-label={`Move ${itemName} down`}
       >
         ↓
       </button>
@@ -200,6 +205,7 @@ function RowControls({ first, last, onUp, onDown, onDelete }) {
         onClick={onDelete}
         className="rounded-lg px-1.5 py-1 text-sm font-bold text-ink/30 hover:text-rose-500 cursor-pointer"
         title="Delete"
+        aria-label={`Delete ${itemName}`}
       >
         ✕
       </button>
@@ -224,6 +230,7 @@ function BehaviorRow({ b, first, last }) {
           onClick={() => updateBehavior(b.code, { polarity: 'pos' })}
           className={`px-2 py-1 cursor-pointer ${b.polarity === 'pos' ? 'bg-emerald-200' : 'hover:bg-ink/5'}`}
           title="Positive"
+          aria-label={`Mark ${b.label} as positive`}
         >
           🌟
         </button>
@@ -231,6 +238,7 @@ function BehaviorRow({ b, first, last }) {
           onClick={() => updateBehavior(b.code, { polarity: 'neg' })}
           className={`px-2 py-1 cursor-pointer ${b.polarity === 'neg' ? 'bg-rose-200' : 'hover:bg-ink/5'}`}
           title="Negative"
+          aria-label={`Mark ${b.label} as negative`}
         >
           ⚠️
         </button>
@@ -241,6 +249,7 @@ function BehaviorRow({ b, first, last }) {
         onUp={() => moveBehavior(b.code, -1)}
         onDown={() => moveBehavior(b.code, 1)}
         onDelete={() => deleteBehavior(b.code)}
+        itemName={b.label}
       />
     </div>
   )
@@ -274,6 +283,7 @@ function InterventionRow({ i, first, last }) {
         onUp={() => moveIntervention(i.code, -1)}
         onDown={() => moveIntervention(i.code, 1)}
         onDelete={() => deleteIntervention(i.code)}
+        itemName={i.label}
       />
     </div>
   )
@@ -407,6 +417,7 @@ function AccommodationRow({ a, first, last }) {
         onUp={() => moveAccommodationOption(a.code, -1)}
         onDown={() => moveAccommodationOption(a.code, 1)}
         onDelete={() => deleteAccommodationOption(a.code)}
+        itemName={a.label}
       />
     </div>
   )
@@ -791,7 +802,7 @@ function BackupControls() {
 
   const doExport = () => {
     downloadFile(
-      `classroom-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      `classroom-backup-${todayKey()}.json`,
       exportData(),
       'application/json',
     )
@@ -801,7 +812,7 @@ function BackupControls() {
 
   const doCSV = () => {
     downloadFile(
-      `classroom-log-${new Date().toISOString().slice(0, 10)}.csv`,
+      `classroom-log-${todayKey()}.csv`,
       logsToCSV(logs, classes, behaviors, interventions),
     )
     toast('Full log exported 📊')
@@ -843,6 +854,15 @@ function BackupControls() {
         <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={doImport} />
       </div>
     </Card>
+  )
+}
+
+function SetupSection({ title, children }) {
+  return (
+    <details className="mt-5 rounded-3xl bg-white/60 p-5 ring-1 ring-ink/10">
+      <summary className="cursor-pointer font-display text-lg font-bold marker:text-ink/50">{title}</summary>
+      <div className="mt-4">{children}</div>
+    </details>
   )
 }
 
@@ -892,11 +912,21 @@ export default function Setup() {
         </div>
       )}
 
-      <ChipManager />
-      <AccommodationManager />
-      <BellSchedules />
-      <AssessmentManager />
-      <BackupControls />
+      <SetupSection title="🎛️ Customize Quick Log buttons">
+        <ChipManager />
+      </SetupSection>
+      <SetupSection title="🎯 Support-plan accommodation options">
+        <AccommodationManager />
+      </SetupSection>
+      <SetupSection title="🔔 Bell schedules">
+        <BellSchedules />
+      </SetupSection>
+      <SetupSection title="📋 Assessment days">
+        <AssessmentManager />
+      </SetupSection>
+      <SetupSection title="💾 Backup, restore & export">
+        <BackupControls />
+      </SetupSection>
       <AddClassModal open={adding} onClose={() => setAdding(false)} />
     </div>
   )

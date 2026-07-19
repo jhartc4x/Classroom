@@ -82,6 +82,7 @@ export function Modal({ open, onClose, title, emoji, children, wide = false }) {
           <button
             onClick={onClose}
             className="rounded-full bg-ink/5 px-3 py-1 font-bold hover:bg-ink/10 cursor-pointer"
+            aria-label={`Close ${title}`}
           >
             ✕
           </button>
