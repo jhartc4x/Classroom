@@ -401,34 +401,40 @@ export default function App() {
         <ReminderBanner />
         <AssessmentBanner />
 
-        <nav className="mb-6 flex flex-nowrap gap-2 overflow-x-auto pb-2" aria-label="App sections">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              aria-current={tab === t.id ? 'page' : undefined}
-              className={`shrink-0 rounded-2xl px-4 py-2 font-display font-bold transition-all active:scale-95 cursor-pointer ${
-                tab === t.id
-                  ? 'sticker -rotate-1 scale-105 bg-ink text-white'
-                  : 'bg-white/70 ring-1 ring-ink/10 hover:scale-105 hover:-rotate-1'
-              }`}
-            >
-              {t.emoji} {t.label}
-            </button>
-          ))}
-        </nav>
+        <div className="md:grid md:grid-cols-[12.5rem_minmax(0,1fr)] md:items-start md:gap-6">
+          <nav
+            className="mb-6 flex flex-nowrap gap-2 overflow-x-auto pb-2 md:sticky md:top-4 md:mb-0 md:flex-col md:overflow-visible md:rounded-3xl md:bg-white/60 md:p-3 md:ring-1 md:ring-ink/10"
+            aria-label="App sections"
+          >
+            <div className="hidden px-2 pb-1 text-xs font-bold uppercase tracking-wide text-ink/40 md:block">Workspace</div>
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                aria-current={tab === t.id ? 'page' : undefined}
+                className={`min-h-11 shrink-0 rounded-2xl px-4 py-2 font-display font-bold transition-all active:scale-95 cursor-pointer md:w-full md:text-left md:active:scale-100 ${
+                  tab === t.id
+                    ? 'sticker -rotate-1 scale-105 bg-ink text-white md:rotate-0 md:scale-100'
+                    : 'bg-white/70 ring-1 ring-ink/10 hover:scale-105 hover:-rotate-1 md:hover:scale-100 md:hover:rotate-0 md:hover:bg-white'
+                }`}
+              >
+                {t.emoji} {t.label}
+              </button>
+            ))}
+          </nav>
 
-        <main className="animate-pop" key={tab}>
-          {tab === 'log' && <QuickLog />}
-          {tab === 'timers' && <Timers />}
-          {tab === 'toolbox' && <Toolbox />}
-          {tab === 'reminders' && <Reminders />}
-          {tab === 'radar' && <Radar />}
-          {tab === 'trends' && <Trends />}
-          {tab === 'students' && <StudentCards />}
-          {tab === 'guide' && <Guide onNavigate={setTab} hasClasses={classes.length > 0} />}
-          {tab === 'setup' && <Setup />}
-        </main>
+          <main className="min-w-0 animate-pop" key={tab}>
+            {tab === 'log' && <QuickLog />}
+            {tab === 'timers' && <Timers />}
+            {tab === 'toolbox' && <Toolbox />}
+            {tab === 'reminders' && <Reminders />}
+            {tab === 'radar' && <Radar />}
+            {tab === 'trends' && <Trends />}
+            {tab === 'students' && <StudentCards />}
+            {tab === 'guide' && <Guide onNavigate={setTab} hasClasses={classes.length > 0} />}
+            {tab === 'setup' && <Setup />}
+          </main>
+        </div>
       </div>
       <EndOfDay open={endOfDayOpen} onClose={() => setEndOfDayOpen(false)} />
       <StudentModal />
