@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, createContext, useContext, useCallback } from 'react'
 import { useStore, useCurrentClass } from './store'
 import { PALETTES } from './data'
-import { findCurrentPeriod, findNextPeriod, minutesNow, fmtHM, parseHM } from './utils'
+import { findCurrentPeriod, findNextPeriod, minutesNow, fmtHM, parseHM, downloadFile } from './utils'
 import Timers from './components/Timers'
 import QuickLog from './components/QuickLog'
 import Reminders from './components/Reminders'
@@ -34,6 +34,65 @@ function Toasts({ toasts }) {
           {t.text}
         </div>
       ))}
+    </div>
+  )
+}
+
+const WEEK = 7 * 24 * 60 * 60 * 1000
+const SNOOZE = 3 * 24 * 60 * 60 * 1000
+
+// Gently reminds the teacher to back up when it's been a while — local data is only
+// as safe as the last export.
+function BackupNudge() {
+  const classes = useStore((s) => s.classes)
+  const logs = useStore((s) => s.logs)
+  const lastBackupTs = useStore((s) => s.lastBackupTs)
+  const dismissedTs = useStore((s) => s.backupNudgeDismissedTs)
+  const exportData = useStore((s) => s.exportData)
+  const markBackedUp = useStore((s) => s.markBackedUp)
+  const dismiss = useStore((s) => s.dismissBackupNudge)
+  const toast = useToast()
+
+  if (classes.length === 0 || logs.length === 0) return null
+
+  const firstActivity = Math.min(...logs.map((l) => l.ts))
+  const reference = lastBackupTs ?? firstActivity
+  const due = Date.now() - reference > WEEK
+  const snoozed = dismissedTs && Date.now() - dismissedTs < SNOOZE
+  if (!due || snoozed) return null
+
+  const daysSince = Math.floor((Date.now() - reference) / (24 * 60 * 60 * 1000))
+  const doBackup = () => {
+    downloadFile(
+      `classroom-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      exportData(),
+      'application/json',
+    )
+    markBackedUp()
+    toast('Backup downloaded 💾')
+  }
+
+  return (
+    <div className="mx-auto mb-4 flex max-w-5xl items-center gap-3 rounded-2xl border-2 border-sky-300 bg-sky-50 px-4 py-3 sticker animate-slide-up">
+      <span className="text-2xl">💾</span>
+      <div className="flex-1 text-sm font-bold">
+        {lastBackupTs
+          ? `It's been ${daysSince} days since your last backup.`
+          : "You haven't backed up yet — your data lives only in this browser."}{' '}
+        <span className="font-normal text-ink/60">A quick download keeps it safe.</span>
+      </div>
+      <button
+        onClick={doBackup}
+        className="rounded-full bg-ink px-4 py-1.5 font-display font-bold text-white hover:scale-105 active:scale-95 cursor-pointer"
+      >
+        ⬇️ Back up now
+      </button>
+      <button
+        onClick={dismiss}
+        className="rounded-full px-3 py-1.5 text-sm font-bold text-ink/40 hover:bg-ink/5 cursor-pointer"
+      >
+        Later
+      </button>
     </div>
   )
 }
@@ -222,6 +281,7 @@ export default function App() {
           </div>
         </header>
 
+        <BackupNudge />
         <ReminderBanner />
 
         <nav className="mb-6 flex flex-wrap gap-2">

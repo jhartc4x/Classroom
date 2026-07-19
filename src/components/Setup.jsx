@@ -574,6 +574,7 @@ function BackupControls() {
   const classes = useStore((s) => s.classes)
   const behaviors = useStore((s) => s.behaviors)
   const interventions = useStore((s) => s.interventions)
+  const markBackedUp = useStore((s) => s.markBackedUp)
   const toast = useToast()
   const fileRef = useRef(null)
 
@@ -583,6 +584,7 @@ function BackupControls() {
       exportData(),
       'application/json',
     )
+    markBackedUp()
     toast('Backup downloaded 💾')
   }
 

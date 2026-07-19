@@ -318,6 +318,12 @@ export const useStore = create(
           ),
         })),
 
+      // ---------- backup nudge ----------
+      lastBackupTs: null, // when the user last downloaded a full backup
+      backupNudgeDismissedTs: null, // when they last snoozed the reminder
+      markBackedUp: () => set({ lastBackupTs: Date.now() }),
+      dismissBackupNudge: () => set({ backupNudgeDismissedTs: Date.now() }),
+
       // ---------- backup / sample data ----------
       loadSampleData: () =>
         set(() => {
