@@ -238,6 +238,18 @@ function PlanSection({ student }) {
   )
 }
 
+function DetailSection({ emoji, title, hint, children, className = '' }) {
+  return (
+    <section className={`rounded-3xl bg-white/70 p-4 ring-1 ring-ink/10 ${className}`}>
+      <div className="mb-3">
+        <h4 className="font-display text-lg font-bold">{emoji} {title}</h4>
+        {hint && <p className="mt-0.5 text-sm text-ink/55">{hint}</p>}
+      </div>
+      {children}
+    </section>
+  )
+}
+
 export default function StudentModal() {
   const viewingStudent = useStore((s) => s.viewingStudent)
   const closeStudent = useStore((s) => s.closeStudent)
@@ -280,14 +292,22 @@ export default function StudentModal() {
   return (
     <Modal open={open} onClose={closeStudent} title={student?.name ?? ''} emoji="📇" wide>
       {student && (
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-xl px-2 py-0.5 text-sm font-bold ${pal.chip}`}>
-              {cls.emoji} {cls.name}
-            </span>
-            <span className="rounded-full bg-rose-100 px-2 py-0.5 text-sm font-bold text-rose-800">⚠️ {negs} in 2 wks</span>
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-sm font-bold text-emerald-800">🌟 {pos}</span>
-            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-sm font-bold text-violet-800">📞 {contacts}</span>
+        <div className="flex flex-col gap-4">
+          <div className="rounded-3xl bg-ink p-4 text-white">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-white/60">Student card</p>
+                <div className="font-display text-2xl font-bold">{student.name}</div>
+                <span className={`mt-2 inline-block rounded-xl px-2 py-0.5 text-sm font-bold ${pal.chip}`}>
+                  {cls.emoji} {cls.name}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center text-xs font-bold">
+                <div className="rounded-2xl bg-white/10 px-3 py-2"><span className="block text-lg">⚠️</span>{negs} recent</div>
+                <div className="rounded-2xl bg-white/10 px-3 py-2"><span className="block text-lg">🌟</span>{pos} positive</div>
+                <div className="rounded-2xl bg-white/10 px-3 py-2"><span className="block text-lg">📞</span>{contacts} contacts</div>
+              </div>
+            </div>
             <button
               onClick={() => {
                 downloadFile(
@@ -297,14 +317,14 @@ export default function StudentModal() {
                 toast(`${student.name}'s history exported 📊`)
               }}
               disabled={studentLogs.length === 0}
-              className="ml-auto rounded-full bg-ink/5 px-3 py-1 text-sm font-bold hover:bg-sky-100 hover:text-sky-800 cursor-pointer disabled:opacity-40"
+              className="mt-3 rounded-full bg-white/15 px-3 py-1 text-sm font-bold hover:bg-white/25 cursor-pointer disabled:opacity-40"
             >
               📊 Export CSV
             </button>
           </div>
 
-          {/* Radar status — Watch (struggling) and Shine (doing well) are independent */}
-          <div className="grid gap-2 sm:grid-cols-2">
+          <DetailSection emoji="🧭" title="Follow-up & recognition" hint="Keep an eye on a concern or capture a strength. These work independently.">
+          <div className="grid gap-4 sm:grid-cols-2">
             {activeWatch ? (
               <div className="rounded-2xl bg-amber-50 px-4 py-2 text-sm font-bold text-amber-900 ring-1 ring-amber-200">
                 🛟 On your radar — {concernByCode[activeWatch.concern]?.emoji} {concernByCode[activeWatch.concern]?.label}
@@ -339,13 +359,13 @@ export default function StudentModal() {
               </div>
             )}
           </div>
+          </DetailSection>
 
-          {/* IEP / 504 plan */}
-          <PlanSection student={student} />
+          <DetailSection emoji="🎯" title="Support plan" hint="Private plan details, accommodations, and goals.">
+            <PlanSection student={student} />
+          </DetailSection>
 
-          {/* Log a parent contact */}
-          <div className="rounded-2xl bg-cream p-3">
-            <div className="mb-2 font-display font-bold">📞 Log a parent / guardian contact</div>
+          <DetailSection emoji="📞" title="Family communication" hint="Choose a contact method and add a note for the history.">
             <div className="mb-2 flex flex-wrap gap-2">
               {contactMethods.map((m) => (
                 <Chip key={m.code} active={method === m.code} onClick={() => setMethod(m.code)}>
@@ -365,11 +385,9 @@ export default function StudentModal() {
                 Log it
               </BigButton>
             </div>
-          </div>
+          </DetailSection>
 
-          {/* Timeline */}
-          <div>
-            <div className="mb-2 font-display font-bold">🧾 History</div>
+          <DetailSection emoji="🧾" title="History" hint="Behaviors, supports, and family contacts in one timeline.">
             {studentLogs.length === 0 ? (
               <div className="rounded-2xl border-2 border-dashed border-ink/15 p-6 text-center text-sm text-ink/50">
                 Nothing logged yet. Behaviors, interventions, and contacts will show up here.
@@ -396,7 +414,7 @@ export default function StudentModal() {
                 ))}
               </div>
             )}
-          </div>
+          </DetailSection>
         </div>
       )}
     </Modal>

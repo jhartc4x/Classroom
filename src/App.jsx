@@ -13,6 +13,7 @@ import StudentModal from './components/StudentModal'
 import EndOfDay from './components/EndOfDay'
 import AssessmentPrep from './components/AssessmentPrep'
 import Guide from './components/Guide'
+import StudentCards from './components/StudentCards'
 import { Modal } from './components/ui'
 
 const TABS = [
@@ -22,6 +23,7 @@ const TABS = [
   { id: 'reminders', label: 'Reminders', emoji: '📣' },
   { id: 'radar', label: 'Radar', emoji: '🛟' },
   { id: 'trends', label: 'Trends', emoji: '📈' },
+  { id: 'students', label: 'Student Cards', emoji: '📇' },
   { id: 'guide', label: 'Guide', emoji: '🧭' },
   { id: 'setup', label: 'Setup', emoji: '🎒' },
 ]
@@ -423,6 +425,7 @@ export default function App() {
           {tab === 'reminders' && <Reminders />}
           {tab === 'radar' && <Radar />}
           {tab === 'trends' && <Trends />}
+          {tab === 'students' && <StudentCards />}
           {tab === 'guide' && <Guide onNavigate={setTab} hasClasses={classes.length > 0} />}
           {tab === 'setup' && <Setup />}
         </main>
