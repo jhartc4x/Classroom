@@ -55,6 +55,17 @@ export const todayKey = () => {
 }
 
 // ---------- bell schedule helpers ----------
+export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+// Resolves which schedule is in effect for a given weekday (0=Sun..6=Sat): a
+// schedule explicitly assigned to that day wins; otherwise fall back to the
+// manually-set "active" schedule, if any.
+export function getScheduleForDay(bellSchedules, activeScheduleId, day = new Date().getDay()) {
+  const dayMatch = bellSchedules.find((b) => b.days?.includes(day))
+  if (dayMatch) return dayMatch
+  return bellSchedules.find((b) => b.id === activeScheduleId) ?? null
+}
+
 export const parseHM = (hm) => {
   if (!hm || !/^\d{1,2}:\d{2}$/.test(hm)) return null
   const [h, m] = hm.split(':').map(Number)

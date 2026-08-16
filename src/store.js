@@ -440,12 +440,12 @@ export const useStore = create(
       stopTimer: () => set({ activeTimer: null }),
 
       // ---------- bell schedules ----------
-      bellSchedules: [], // {id, name, periods: [{id, label, start 'HH:MM', end 'HH:MM', classId|null}]}
-      activeScheduleId: null, // which schedule is in effect today
+      bellSchedules: [], // {id, name, days: number[] (0=Sun..6=Sat), periods: [{id, label, start 'HH:MM', end 'HH:MM', classId|null}]}
+      activeScheduleId: null, // manual fallback schedule for days with no day-of-week assignment
       autoSwitch: true, // follow the bell schedule to auto-select the current class
 
       addBellSchedule: (name) => {
-        const sched = { id: uid(), name, periods: [] }
+        const sched = { id: uid(), name, days: [], periods: [] }
         set((s) => ({
           bellSchedules: [...s.bellSchedules, sched],
           activeScheduleId: s.activeScheduleId ?? sched.id,
@@ -463,6 +463,22 @@ export const useStore = create(
         })),
       setActiveSchedule: (id) => set({ activeScheduleId: id }),
       setAutoSwitch: (v) => set({ autoSwitch: v }),
+      // Assigns/unassigns a weekday (0=Sun..6=Sat) to a schedule. A day can only
+      // belong to one schedule at a time, so it's removed from any other schedule first.
+      toggleScheduleDay: (scheduleId, day) =>
+        set((s) => {
+          const target = s.bellSchedules.find((b) => b.id === scheduleId)
+          const hasDay = target?.days?.includes(day)
+          return {
+            bellSchedules: s.bellSchedules.map((b) => {
+              if (b.id === scheduleId) {
+                const days = hasDay ? b.days.filter((d) => d !== day) : [...(b.days ?? []), day]
+                return { ...b, days }
+              }
+              return b.days?.includes(day) ? { ...b, days: b.days.filter((d) => d !== day) } : b
+            }),
+          }
+        }),
       addPeriod: (scheduleId) =>
         set((s) => ({
           bellSchedules: s.bellSchedules.map((b) =>

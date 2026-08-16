@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useStore } from '../store'
 import { PALETTES, PALETTE_KEYS, CLASS_EMOJIS } from '../data'
-import { sortedPeriods, downloadFile, logsToCSV, todayKey } from '../utils'
+import { sortedPeriods, downloadFile, logsToCSV, todayKey, WEEKDAYS, getScheduleForDay } from '../utils'
 import { Card, SectionTitle, EmptyState, BigButton, Modal, Chip } from './ui'
 import { useToast } from '../App'
 import SeatingEditor from './SeatingEditor'
@@ -478,8 +478,10 @@ function AccommodationManager() {
 
 function ScheduleCard({ schedule }) {
   const classes = useStore((s) => s.classes)
+  const bellSchedules = useStore((s) => s.bellSchedules)
   const activeScheduleId = useStore((s) => s.activeScheduleId)
   const setActiveSchedule = useStore((s) => s.setActiveSchedule)
+  const toggleScheduleDay = useStore((s) => s.toggleScheduleDay)
   const updateBellSchedule = useStore((s) => s.updateBellSchedule)
   const deleteBellSchedule = useStore((s) => s.deleteBellSchedule)
   const addPeriod = useStore((s) => s.addPeriod)
@@ -487,25 +489,19 @@ function ScheduleCard({ schedule }) {
   const deletePeriod = useStore((s) => s.deletePeriod)
   const toast = useToast()
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const isActive = schedule.id === activeScheduleId
+  const isDefault = schedule.id === activeScheduleId
+  const isInEffectToday = getScheduleForDay(bellSchedules, activeScheduleId)?.id === schedule.id
 
   return (
-    <Card className={`flex flex-col gap-3 ${isActive ? 'ring-2 ring-amber-400' : ''}`}>
+    <Card className={`flex flex-col gap-3 ${isInEffectToday ? 'ring-2 ring-amber-400' : ''}`}>
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={schedule.name}
           onChange={(e) => updateBellSchedule(schedule.id, { name: e.target.value })}
           className="rounded-xl bg-transparent px-2 py-1 font-display text-lg font-bold outline-none ring-1 ring-transparent hover:ring-ink/10 focus:bg-white focus:ring-ink/20"
         />
-        {isActive ? (
+        {isInEffectToday && (
           <span className="rounded-full bg-amber-200 px-3 py-1 text-sm font-bold">🔔 today&apos;s schedule</span>
-        ) : (
-          <button
-            onClick={() => { setActiveSchedule(schedule.id); toast(`${schedule.name} is now today's schedule 🔔`) }}
-            className="rounded-full bg-ink/5 px-3 py-1 text-sm font-bold hover:bg-amber-100 cursor-pointer"
-          >
-            Use today
-          </button>
         )}
         {confirmDelete ? (
           <span className="ml-auto flex items-center gap-2 text-sm font-bold">
@@ -526,6 +522,34 @@ function ScheduleCard({ schedule }) {
             className="ml-auto text-sm font-bold text-ink/30 hover:text-rose-500 cursor-pointer"
           >
             delete
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-bold text-ink/40">Days:</span>
+        {WEEKDAYS.map((label, day) => (
+          <button
+            key={day}
+            onClick={() => toggleScheduleDay(schedule.id, day)}
+            className={`rounded-full px-2.5 py-1 text-xs font-bold cursor-pointer ${
+              schedule.days?.includes(day)
+                ? 'bg-sky-300 text-ink'
+                : 'bg-ink/5 text-ink/40 hover:bg-ink/10'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="mx-1 text-ink/20">·</span>
+        {isDefault ? (
+          <span className="rounded-full bg-ink/10 px-2.5 py-1 text-xs font-bold text-ink/60">default schedule</span>
+        ) : (
+          <button
+            onClick={() => { setActiveSchedule(schedule.id); toast(`${schedule.name} is now the default schedule 🔔`) }}
+            className="rounded-full bg-ink/5 px-2.5 py-1 text-xs font-bold text-ink/50 hover:bg-amber-100 cursor-pointer"
+          >
+            make default
           </button>
         )}
       </div>
@@ -619,9 +643,10 @@ function BellSchedules() {
         Bell schedules
       </SectionTitle>
       <p className="mb-3 -mt-1 text-sm text-ink/50">
-        Add each schedule your school runs (regular, early release, assembly…). Pick which one is in effect
-        today, map periods to your classes, and the app follows the bell: the header shows a countdown and the
-        current class selects itself.
+        Add each schedule your school runs (regular, early release, assembly…), map periods to your classes,
+        and tick off which days of the week each one covers — the app follows the bell for whichever schedule
+        matches today: the header shows a countdown and the current class selects itself. Days left unassigned
+        fall back to the schedule marked "default."
       </p>
 
       <div className="mb-4 flex gap-2">

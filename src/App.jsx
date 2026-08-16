@@ -1,7 +1,16 @@
 import { useState, useEffect, useRef, createContext, useContext, useCallback } from 'react'
 import { useStore, useCurrentClass } from './store'
 import { PALETTES } from './data'
-import { findCurrentPeriod, findNextPeriod, minutesNow, fmtHM, parseHM, downloadFile, todayKey } from './utils'
+import {
+  findCurrentPeriod,
+  findNextPeriod,
+  minutesNow,
+  fmtHM,
+  parseHM,
+  downloadFile,
+  todayKey,
+  getScheduleForDay,
+} from './utils'
 import Timers from './components/Timers'
 import QuickLog from './components/QuickLog'
 import Reminders from './components/Reminders'
@@ -303,7 +312,7 @@ function BellPill({ onGoToSetup }) {
   const [, tick] = useState(0)
   const lastPeriodRef = useRef(null)
 
-  const schedule = bellSchedules.find((b) => b.id === activeScheduleId)
+  const schedule = getScheduleForDay(bellSchedules, activeScheduleId)
   const period = findCurrentPeriod(schedule)
 
   useEffect(() => {
