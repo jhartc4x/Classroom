@@ -9,6 +9,7 @@ import {
   DEFAULT_BEHAVIORS,
   DEFAULT_INTERVENTIONS,
   DEFAULT_ACCOMMODATIONS,
+  DEFAULT_HOME_LANGUAGES,
   CONTACT_METHODS,
 } from './data'
 
@@ -74,6 +75,14 @@ export const useStore = create(
             c.id === classId ? { ...c, students: c.students.filter((st) => st.id !== studentId) } : c,
           ),
         })),
+      updateStudent: (classId, studentId, patch) =>
+        set((s) => ({
+          classes: s.classes.map((c) =>
+            c.id === classId
+              ? { ...c, students: c.students.map((st) => (st.id === studentId ? { ...st, ...patch } : st)) }
+              : c,
+          ),
+        })),
 
       // ---------- editable chips (behaviors + interventions) ----------
       behaviors: DEFAULT_BEHAVIORS, // {code, label, emoji, polarity: 'pos'|'neg'}
@@ -108,6 +117,16 @@ export const useStore = create(
       moveAccommodationOption: (code, dir) =>
         set((s) => ({ accommodationOptions: move(s.accommodationOptions, code, dir) })),
       resetAccommodationOptions: () => set({ accommodationOptions: DEFAULT_ACCOMMODATIONS }),
+
+      // ---------- editable chips (home languages) ----------
+      homeLanguages: DEFAULT_HOME_LANGUAGES, // {code, label}
+      addHomeLanguage: (label) =>
+        set((s) => ({ homeLanguages: [...s.homeLanguages, { code: uid(), label }] })),
+      updateHomeLanguage: (code, patch) =>
+        set((s) => ({ homeLanguages: s.homeLanguages.map((l) => (l.code === code ? { ...l, ...patch } : l)) })),
+      deleteHomeLanguage: (code) => set((s) => ({ homeLanguages: s.homeLanguages.filter((l) => l.code !== code) })),
+      moveHomeLanguage: (code, dir) => set((s) => ({ homeLanguages: move(s.homeLanguages, code, dir) })),
+      resetHomeLanguages: () => set({ homeLanguages: DEFAULT_HOME_LANGUAGES }),
 
       // ---------- student detail modal ----------
       viewingStudent: null, // studentId currently shown in the detail modal (ephemeral, not persisted)
@@ -543,6 +562,7 @@ export const useStore = create(
             behaviors: s.behaviors,
             interventions: s.interventions,
             accommodationOptions: s.accommodationOptions,
+            homeLanguages: s.homeLanguages,
             plans: s.plans,
             assessments: s.assessments,
           },
@@ -566,6 +586,7 @@ export const useStore = create(
           behaviors: data.behaviors ?? DEFAULT_BEHAVIORS,
           interventions: data.interventions ?? DEFAULT_INTERVENTIONS,
           accommodationOptions: data.accommodationOptions ?? DEFAULT_ACCOMMODATIONS,
+          homeLanguages: data.homeLanguages ?? DEFAULT_HOME_LANGUAGES,
           plans: data.plans ?? {},
           assessments: data.assessments ?? [],
         })
@@ -593,18 +614,21 @@ export function useChipMaps() {
   const behaviors = useStore((s) => s.behaviors)
   const interventions = useStore((s) => s.interventions)
   const accommodationOptions = useStore((s) => s.accommodationOptions)
+  const homeLanguages = useStore((s) => s.homeLanguages)
   return useMemo(
     () => ({
       behaviors,
       interventions,
       accommodationOptions,
+      homeLanguages,
       contactMethods: CONTACT_METHODS,
       bMap: byCode(behaviors),
       iMap: byCode(interventions),
       aMap: byCode(accommodationOptions),
+      lMap: byCode(homeLanguages),
       cMap: CONTACT_MAP,
     }),
-    [behaviors, interventions, accommodationOptions],
+    [behaviors, interventions, accommodationOptions, homeLanguages],
   )
 }
 

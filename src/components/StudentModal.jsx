@@ -4,6 +4,7 @@ import { CONCERNS, SHINE_REASONS, PALETTES, GOAL_STATUSES, PLAN_TYPES } from '..
 import { describeLog, timeAgo, downloadFile, logsToCSV, byCode } from '../utils'
 import { Modal, BigButton, Chip } from './ui'
 import { useToast } from '../App'
+import EditStudentModal from './EditStudentModal'
 
 const concernByCode = byCode(CONCERNS)
 const shineByCode = byCode(SHINE_REASONS)
@@ -259,12 +260,13 @@ export default function StudentModal() {
   const addLog = useStore((s) => s.addLog)
   const deleteLog = useStore((s) => s.deleteLog)
   const addFlag = useStore((s) => s.addFlag)
-  const { bMap, iMap, cMap, contactMethods, behaviors, interventions } = useChipMaps()
+  const { bMap, iMap, cMap, lMap, contactMethods, behaviors, interventions } = useChipMaps()
   const toast = useToast()
 
   const [method, setMethod] = useState('phone')
   const [note, setNote] = useState('')
   const [section, setSection] = useState('overview')
+  const [editingStudent, setEditingStudent] = useState(false)
 
   const { student, cls } = findStudent(classes, viewingStudent)
   const open = !!student
@@ -298,10 +300,35 @@ export default function StudentModal() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-bold text-white/60">Student card</p>
-                <div className="font-display text-2xl font-bold">{student.name}</div>
-                <span className={`mt-2 inline-block rounded-xl px-2 py-0.5 text-sm font-bold ${pal.chip}`}>
-                  {cls.emoji} {cls.name}
-                </span>
+                <div className="flex items-center gap-2">
+                  <div className="font-display text-2xl font-bold">{student.name}</div>
+                  <button
+                    onClick={() => setEditingStudent(true)}
+                    className="rounded-full bg-white/15 px-2 py-1 text-sm font-bold hover:bg-white/25 cursor-pointer"
+                    title={`Edit ${student.name}`}
+                    aria-label={`Edit ${student.name}`}
+                  >
+                    ✏️
+                  </button>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className={`inline-block rounded-xl px-2 py-0.5 text-sm font-bold ${pal.chip}`}>
+                    {cls.emoji} {cls.name}
+                  </span>
+                  {student.homeLanguage && lMap[student.homeLanguage] && (
+                    <span className="inline-block rounded-xl bg-white/15 px-2 py-0.5 text-sm font-bold">
+                      {lMap[student.homeLanguage].label}
+                    </span>
+                  )}
+                  {student.healthNote && (
+                    <span
+                      className="inline-block rounded-xl bg-rose-400/80 px-2 py-0.5 text-sm font-bold"
+                      title={student.healthNote}
+                    >
+                      🏥 Health note
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center text-xs font-bold">
                 <div className="rounded-2xl bg-white/10 px-3 py-2"><span className="block text-lg">⚠️</span>{negs} recent</div>
@@ -329,6 +356,12 @@ export default function StudentModal() {
             <ModalTab active={section === 'support'} onClick={() => setSection('support')}>🎯 IEP / 504</ModalTab>
             <ModalTab active={section === 'history'} onClick={() => setSection('history')}>📞 Family & history</ModalTab>
           </div>
+
+          {section === 'overview' && student.healthNote && (
+            <DetailSection emoji="🏥" title="Health note" className="bg-rose-50 ring-rose-100">
+              <p className="text-sm font-bold text-rose-900">{student.healthNote}</p>
+            </DetailSection>
+          )}
 
           {section === 'overview' && <DetailSection emoji="🧭" title="Follow-up & recognition" hint="Keep an eye on a concern or capture a strength. These work independently.">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -424,6 +457,14 @@ export default function StudentModal() {
           </DetailSection>
           </>}
         </div>
+      )}
+      {student && (
+        <EditStudentModal
+          classId={cls.id}
+          studentId={student.id}
+          open={editingStudent}
+          onClose={() => setEditingStudent(false)}
+        />
       )}
     </Modal>
   )

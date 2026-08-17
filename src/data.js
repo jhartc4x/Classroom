@@ -77,6 +77,17 @@ export const DEFAULT_ACCOMMODATIONS = [
   { code: 'behaviorplan', label: 'Behavior support plan', emoji: '🧭' },
 ]
 
+// A student's home/family language. Purely informational — shown as a small
+// badge on cards so a teacher can see it at a glance. Seeds the editable chip
+// list in the store, same treatment as behaviors/interventions/accommodations.
+export const DEFAULT_HOME_LANGUAGES = [
+  { code: 'en', label: 'English' },
+  { code: 'es', label: 'Spanish' },
+  { code: 'mn', label: 'Mongolian' },
+  { code: 'am', label: 'Amharic' },
+  { code: 'ar', label: 'Arabic' },
+]
+
 export const GOAL_STATUSES = [
   { code: 'not-started', label: 'Not started', emoji: '⬜' },
   { code: 'in-progress', label: 'In progress', emoji: '🟡' },

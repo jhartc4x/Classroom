@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react'
-import { useStore } from '../store'
+import { useStore, useChipMaps } from '../store'
 import { PALETTES, PALETTE_KEYS, CLASS_EMOJIS } from '../data'
 import { sortedPeriods, downloadFile, logsToCSV, todayKey, WEEKDAYS, getScheduleForDay } from '../utils'
 import { Card, SectionTitle, EmptyState, BigButton, Modal, Chip } from './ui'
 import { useToast } from '../App'
 import SeatingEditor from './SeatingEditor'
+import EditStudentModal from './EditStudentModal'
 
 function AddClassModal({ open, onClose }) {
   const addClass = useStore((s) => s.addClass)
@@ -83,6 +84,8 @@ function RosterEditor({ cls }) {
   const [text, setText] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [seatingOpen, setSeatingOpen] = useState(false)
+  const [editingStudentId, setEditingStudentId] = useState(null)
+  const { lMap } = useChipMaps()
   const pal = PALETTES[cls.color] ?? PALETTES.sky
   const logCount = logs.filter((log) => log.classId === cls.id).length
 
@@ -139,10 +142,26 @@ function RosterEditor({ cls }) {
         <div className="flex flex-wrap gap-1.5">
           {cls.students.map((st) => (
             <span key={st.id} className={`group flex items-center gap-1 rounded-full px-3 py-1 text-sm font-bold ${pal.soft}`}>
+              {st.healthNote && (
+                <span title={`Health note: ${st.healthNote}`} aria-label="Has a health note" className="text-rose-500">🏥</span>
+              )}
               {st.name}
+              {st.homeLanguage && lMap[st.homeLanguage] && (
+                <span className="rounded-full bg-white/60 px-1.5 py-0.5 text-[10px] font-bold text-ink/60">
+                  {lMap[st.homeLanguage].label}
+                </span>
+              )}
+              <button
+                onClick={() => setEditingStudentId(st.id)}
+                className="text-ink/40 hover:text-ink cursor-pointer"
+                title={`Edit ${st.name}`}
+                aria-label={`Edit ${st.name}`}
+              >
+                ✏️
+              </button>
               <button
                 onClick={() => removeStudent(cls.id, st.id)}
-                className="hidden text-ink/40 hover:text-rose-500 group-hover:inline cursor-pointer"
+                className="text-ink/40 hover:text-rose-500 cursor-pointer"
                 title={`Remove ${st.name}`}
                 aria-label={`Remove ${st.name} from ${cls.name}`}
               >
@@ -166,6 +185,12 @@ function RosterEditor({ cls }) {
         </BigButton>
       </div>
       <SeatingEditor classId={cls.id} open={seatingOpen} onClose={() => setSeatingOpen(false)} />
+      <EditStudentModal
+        classId={cls.id}
+        studentId={editingStudentId}
+        open={!!editingStudentId}
+        onClose={() => setEditingStudentId(null)}
+      />
     </Card>
   )
 }
@@ -466,6 +491,80 @@ function AccommodationManager() {
             onKeyDown={(e) => e.key === 'Enter' && add()}
             placeholder="New accommodation…"
             className="min-w-0 flex-1 rounded-xl bg-cream px-3 py-1.5 text-sm font-bold ring-1 ring-ink/10 outline-none focus:ring-2 focus:ring-violet-400"
+          />
+          <BigButton className="shrink-0 bg-ink text-white text-sm" onClick={add} disabled={!label.trim()}>
+            Add
+          </BigButton>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+function LanguageRow({ l, first, last }) {
+  const updateHomeLanguage = useStore((s) => s.updateHomeLanguage)
+  const deleteHomeLanguage = useStore((s) => s.deleteHomeLanguage)
+  const moveHomeLanguage = useStore((s) => s.moveHomeLanguage)
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        value={l.label}
+        onChange={(e) => updateHomeLanguage(l.code, { label: e.target.value })}
+        className="min-w-0 flex-1 rounded-xl bg-cream px-3 py-1.5 text-sm font-bold ring-1 ring-ink/10 outline-none focus:ring-2 focus:ring-sky-400"
+      />
+      <RowControls
+        first={first}
+        last={last}
+        onUp={() => moveHomeLanguage(l.code, -1)}
+        onDown={() => moveHomeLanguage(l.code, 1)}
+        onDelete={() => deleteHomeLanguage(l.code)}
+        itemName={l.label}
+      />
+    </div>
+  )
+}
+
+function LanguageManager() {
+  const homeLanguages = useStore((s) => s.homeLanguages)
+  const addHomeLanguage = useStore((s) => s.addHomeLanguage)
+  const resetHomeLanguages = useStore((s) => s.resetHomeLanguages)
+  const toast = useToast()
+  const [label, setLabel] = useState('')
+
+  const add = () => {
+    if (!label.trim()) return
+    addHomeLanguage(label.trim())
+    toast(`Home language "${label.trim()}" added`)
+    setLabel('')
+  }
+
+  return (
+    <div className="mt-10">
+      <SectionTitle emoji="🗣️">Home languages</SectionTitle>
+      <p className="mb-3 -mt-1 text-sm text-ink/50">
+        The quick-pick list used when setting a student&apos;s home/family language. Add, rename, reorder, or
+        remove languages to match your roster.
+      </p>
+      <Card className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <div className="font-display font-bold">Languages</div>
+          <button
+            onClick={() => { resetHomeLanguages(); toast('Home languages reset to defaults') }}
+            className="text-xs font-bold text-ink/40 hover:text-ink cursor-pointer"
+          >
+            reset to defaults
+          </button>
+        </div>
+        {homeLanguages.map((l, idx) => (
+          <LanguageRow key={l.code} l={l} first={idx === 0} last={idx === homeLanguages.length - 1} />
+        ))}
+        <div className="mt-2 flex items-center gap-2 border-t border-ink/10 pt-3">
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+            placeholder="New language…"
+            className="min-w-0 flex-1 rounded-xl bg-cream px-3 py-1.5 text-sm font-bold ring-1 ring-ink/10 outline-none focus:ring-2 focus:ring-sky-400"
           />
           <BigButton className="shrink-0 bg-ink text-white text-sm" onClick={add} disabled={!label.trim()}>
             Add
@@ -942,6 +1041,9 @@ export default function Setup() {
       </SetupSection>
       <SetupSection title="🎯 Support-plan accommodation options">
         <AccommodationManager />
+      </SetupSection>
+      <SetupSection title="🗣️ Home languages">
+        <LanguageManager />
       </SetupSection>
       <SetupSection title="🔔 Bell schedules">
         <BellSchedules />

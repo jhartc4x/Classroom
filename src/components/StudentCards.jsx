@@ -12,7 +12,7 @@ export default function StudentCards() {
   const openStudent = useStore((s) => s.openStudent)
   const [classId, setClassId] = useState('all')
   const [query, setQuery] = useState('')
-  const { bMap } = useChipMaps()
+  const { bMap, lMap } = useChipMaps()
   const twoWeeksAgo = Date.now() - 14 * 24 * 60 * 60 * 1000
 
   const scopedStudents = useMemo(
@@ -81,16 +81,26 @@ export default function StudentCards() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="font-display text-lg font-bold">{student.name}</div>
+                    <div className="flex items-center gap-1.5 font-display text-lg font-bold">
+                      {student.name}
+                      {student.homeLanguage && lMap[student.homeLanguage] && (
+                        <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-900">
+                          {lMap[student.homeLanguage].label}
+                        </span>
+                      )}
+                    </div>
                     <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold ${pal.soft}`}>{cls.emoji} {cls.name}</span>
                   </div>
                   {plans[student.id]?.type && <span className="rounded-full bg-violet-100 px-2 py-1 text-xs font-bold text-violet-900">{plans[student.id].type === 'iep' ? 'IEP' : '504'} plan</span>}
                 </div>
                 <div className="mt-4 flex flex-wrap gap-1.5 text-xs font-bold">
+                  {student.healthNote && (
+                    <span title={`Health note: ${student.healthNote}`} className="rounded-full bg-rose-100 px-2 py-1 text-rose-800">🏥 Health note</span>
+                  )}
                   {recentNeg > 0 && <span className="rounded-full bg-rose-100 px-2 py-1 text-rose-800">⚠️ {recentNeg} recent</span>}
                   {activeWatch && <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-900">🛟 Watch</span>}
                   {activeShine && <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-900">🌟 Shine</span>}
-                  {!recentNeg && !activeWatch && !activeShine && <span className="rounded-full bg-ink/5 px-2 py-1 text-ink/50">No follow-up flags</span>}
+                  {!student.healthNote && !recentNeg && !activeWatch && !activeShine && <span className="rounded-full bg-ink/5 px-2 py-1 text-ink/50">No follow-up flags</span>}
                 </div>
                 <div className="mt-auto pt-4 text-xs font-bold text-ink/45">
                   {lastLog ? `Last entry ${timeAgo(lastLog.ts)}` : 'No entries yet'} <span className="float-right text-sky-700">Open card →</span>
