@@ -83,6 +83,29 @@ export const useStore = create(
               : c,
           ),
         })),
+      // Moves a student to a different class/section, carrying their name, plan,
+      // logs, and flags (all keyed by studentId, not classId) along with them.
+      // Drops them from the old class's seating chart since seats are per-class.
+      moveStudent: (studentId, toClassId) =>
+        set((s) => {
+          const { student, cls: fromClass } = findStudent(s.classes, studentId)
+          if (!student || !fromClass || fromClass.id === toClassId) return {}
+          return {
+            classes: s.classes.map((c) => {
+              if (c.id === fromClass.id) {
+                let seating = c.seating
+                if (seating?.seats?.[studentId]) {
+                  const seats = { ...seating.seats }
+                  delete seats[studentId]
+                  seating = { ...seating, seats }
+                }
+                return { ...c, students: c.students.filter((st) => st.id !== studentId), seating }
+              }
+              if (c.id === toClassId) return { ...c, students: [...c.students, student] }
+              return c
+            }),
+          }
+        }),
 
       // ---------- editable chips (behaviors + interventions) ----------
       behaviors: DEFAULT_BEHAVIORS, // {code, label, emoji, polarity: 'pos'|'neg'}

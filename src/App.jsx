@@ -188,7 +188,7 @@ function ClassPicker() {
 
   if (classes.length === 0) return null
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="contents">
       {classes.map((c) => {
         const pal = PALETTES[c.color] ?? PALETTES.sky
         const active = c.id === currentClassId
@@ -381,7 +381,7 @@ export default function App() {
           <h1 className="font-display text-3xl font-extrabold tracking-tight">
             <span className="mr-1 inline-block animate-float">🎒</span> Ms. Ambrogio&apos;s Classroom
           </h1>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <MiniTimer onGoToTimers={() => setTab('timers')} />
             <BellPill onGoToSetup={() => setTab('setup')} />
             <BackupStatus onGoToSetup={() => setTab('setup')} />
@@ -394,7 +394,6 @@ export default function App() {
                 🌅 Wrap up
               </button>
             )}
-            <ClassPicker />
             {classes.length > 0 && (
               <button
                 onClick={() => setStudentSearchOpen(true)}
@@ -403,6 +402,7 @@ export default function App() {
                 🔎 Find student
               </button>
             )}
+            <ClassPicker />
           </div>
         </header>
 

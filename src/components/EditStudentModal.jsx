@@ -5,18 +5,27 @@ import { useToast } from '../App'
 
 export default function EditStudentModal({ classId, studentId, open, onClose }) {
   const student = useStore((s) => s.classes.find((c) => c.id === classId)?.students.find((st) => st.id === studentId))
+  const classes = useStore((s) => s.classes)
   const updateStudent = useStore((s) => s.updateStudent)
+  const moveStudent = useStore((s) => s.moveStudent)
+  const removeStudent = useStore((s) => s.removeStudent)
   const homeLanguages = useStore((s) => s.homeLanguages)
   const toast = useToast()
   const [name, setName] = useState('')
   const [homeLanguage, setHomeLanguage] = useState(null)
   const [healthNote, setHealthNote] = useState('')
+  const [moveTo, setMoveTo] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const otherClasses = classes.filter((c) => c.id !== classId)
 
   useEffect(() => {
     if (open && student) {
       setName(student.name)
       setHomeLanguage(student.homeLanguage ?? null)
       setHealthNote(student.healthNote ?? '')
+      setMoveTo('')
+      setConfirmDelete(false)
     }
   }, [open, student])
 
@@ -28,6 +37,20 @@ export default function EditStudentModal({ classId, studentId, open, onClose }) 
       healthNote: healthNote.trim(),
     })
     toast(`${name.trim()} updated`)
+    onClose()
+  }
+
+  const move = () => {
+    if (!moveTo) return
+    const target = classes.find((c) => c.id === moveTo)
+    moveStudent(studentId, moveTo)
+    toast(`${student.name} moved to ${target?.emoji ?? ''} ${target?.name ?? 'the class'}`.trim())
+    onClose()
+  }
+
+  const remove = () => {
+    removeStudent(classId, studentId)
+    toast(`${student.name} removed`)
     onClose()
   }
 
@@ -76,6 +99,54 @@ export default function EditStudentModal({ classId, studentId, open, onClose }) 
         <BigButton className="bg-ink text-white" onClick={save} disabled={!name.trim()}>
           Save
         </BigButton>
+
+        {otherClasses.length > 0 && (
+          <div className="rounded-2xl bg-cream p-3">
+            <label className="mb-1 block text-sm font-bold text-ink/60">Move to another class</label>
+            <div className="flex gap-2">
+              <select
+                value={moveTo}
+                onChange={(e) => setMoveTo(e.target.value)}
+                className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2 text-sm font-bold ring-1 ring-ink/10 outline-none focus:ring-2 focus:ring-sky-400"
+              >
+                <option value="">Choose a class…</option>
+                {otherClasses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.emoji} {c.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={move}
+                disabled={!moveTo}
+                className="shrink-0 rounded-xl bg-ink px-3 py-2 text-sm font-bold text-white disabled:opacity-40 cursor-pointer"
+              >
+                Move
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between rounded-2xl bg-rose-50 p-3 ring-1 ring-rose-100">
+          <span className="text-sm font-bold text-rose-900">Remove {student?.name ?? 'this student'} from the roster</span>
+          {confirmDelete ? (
+            <span className="flex items-center gap-2 text-sm font-bold">
+              <button onClick={remove} className="rounded-full bg-rose-500 px-3 py-1 text-white hover:bg-rose-600 cursor-pointer">
+                Yes, delete
+              </button>
+              <button onClick={() => setConfirmDelete(false)} className="text-rose-900/60 hover:underline cursor-pointer">
+                cancel
+              </button>
+            </span>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="rounded-full bg-white px-3 py-1 text-sm font-bold text-rose-600 ring-1 ring-rose-200 hover:bg-rose-100 cursor-pointer"
+            >
+              Delete student
+            </button>
+          )}
+        </div>
       </div>
     </Modal>
   )
